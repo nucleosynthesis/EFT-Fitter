@@ -1,0 +1,13 @@
+{
+  "qqH_GE2J_MJJ_GT350_PTH_GT200":"qqH BSM",
+  "ZH_lep":"ZH lep (stage 0)",
+  "ZH_lep_PTV_0_75":"ZH lep p_{T}^{V} < 75",
+  "ZH_lep_PTV_75_150":"ZH lep 75 < p_{T}^{V} < 150",
+  "ZH_lep_PTV_150_250_0J":"ZH lep 0J 150 < p_{T}^{V} < 250",
+  "ZH_lep_PTV_150_250_GE1J":"ZH lep #geq1J 150 < p_{T}^{V} < 250",
+  "ZH_lep_PTV_GT250":"ZH lep p_{T}^{V} > 250",
+  "ttH":"ttH",
+  "dummy":""
+}
+
+
