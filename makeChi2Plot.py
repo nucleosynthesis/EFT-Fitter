@@ -20,7 +20,7 @@ def get_options():
 (opt,args) = get_options()
 
 # Load results
-with open(opt.inputPkl,"r") as fpkl: results = pickle.load(fpkl)
+with open(opt.inputPkl,"rb") as fpkl: results = pickle.load(fpkl)
 
 # Extract full list of pois
 from importlib import import_module
@@ -331,8 +331,8 @@ if opt.doLinear: modes = ['fixed','fixed_linear','profiled','profiled_linear']
 else: modes = ['fixed','profiled']
 
 for mode in modes:
-  for k,v in styleMap[mode].iteritems(): getattr(grs["%s_%s"%(opt.poi,mode)],"Set%s"%k)(v)
-  for k,v in styleMap["%s_ext"%mode].iteritems(): getattr(grs["%s_%s_ext"%(opt.poi,mode)],"Set%s"%k)(v)
+  for k,v in styleMap[mode].items(): getattr(grs["%s_%s"%(opt.poi,mode)],"Set%s"%k)(v)
+  for k,v in styleMap["%s_ext"%mode].items(): getattr(grs["%s_%s_ext"%(opt.poi,mode)],"Set%s"%k)(v)
   grs["%s_%s"%(opt.poi,mode)].Draw("Same P")
   grs["%s_%s_ext"%(opt.poi,mode)].Draw("Same C")
 
@@ -363,7 +363,7 @@ hlines['hline_box'].Draw("SAME")
 grs_dummy = od()
 for mode in modes:
   grs_dummy["%s_%s"%(opt.poi,mode)] = ROOT.TGraph()
-  for k,v in styleMap["%s_dummy"%mode].iteritems(): getattr(grs_dummy["%s_%s"%(opt.poi,mode)],"Set%s"%k)(v)
+  for k,v in styleMap["%s_dummy"%mode].items(): getattr(grs_dummy["%s_%s"%(opt.poi,mode)],"Set%s"%k)(v)
 
 if opt.doLinear: 
   leg = ROOT.TLegend(0.15,0.78,0.85,0.89)
@@ -431,9 +431,9 @@ if opt.otherPOIs != '':
   for opoi in opt.otherPOIs.split(","):
     if opt.doProfiledPOIFrac: mode = "profiledFrac"
     else: mode = "profiledPull"
-    for k,v in styleMap[mode].iteritems(): getattr(grs["%s_%s_%s"%(opt.poi,mode,opoi)],"Set%s"%k)(v)
-    for k,v in styleMap["%s_ext"%mode].iteritems(): getattr(grs["%s_%s_ext_%s"%(opt.poi,mode,opoi)],"Set%s"%k)(v)
-    for k,v in colorMap[opoi].iteritems(): 
+    for k,v in styleMap[mode].items(): getattr(grs["%s_%s_%s"%(opt.poi,mode,opoi)],"Set%s"%k)(v)
+    for k,v in styleMap["%s_ext"%mode].items(): getattr(grs["%s_%s_ext_%s"%(opt.poi,mode,opoi)],"Set%s"%k)(v)
+    for k,v in colorMap[opoi].items(): 
       getattr(grs["%s_%s_%s"%(opt.poi,mode,opoi)],"Set%s"%k)(v)
       getattr(grs["%s_%s_ext_%s"%(opt.poi,mode,opoi)],"Set%s"%k)(v)
 

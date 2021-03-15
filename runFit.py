@@ -41,14 +41,14 @@ fit = fitter(pois,functions,inputs,opt.doAsimov)
 results = od()
 for poi in pois.keys():
 
-  print " --> Running fits for: %s"%poi
+  print(" --> Running fits for: %s"%poi)
   results[poi] = od()
 
   # Quadratic
   fit.setLinearOnly(False)
 
   # Fixed scan
-  print "    * Quadratic: fixed"
+  print("    * Quadratic: fixed")
   pvals_f, chi2_f = fit.scan_fixed(poi,npoints=100)
   results[poi]["fixed"] = od()
   results[poi]["fixed"]['pvals'] = pvals_f
@@ -56,7 +56,7 @@ for poi in pois.keys():
   results[poi]["fixed"]['dchi2'] = chi2_f-chi2_f.min()
 
   # Profiled scan (full)
-  print "    * Quadratic: profiled"
+  print("    * Quadratic: profiled")
   pvals_p, chi2_p, all_pvals_p = fit.scan_profiled(poi,npoints=50,freezeOtherPOIS=[],resetEachStep=opt.doReset,reverseScan=opt.doFlip,verbose=True)
   results[poi]["profiled"] = od()
   results[poi]["profiled"]['pvals'] = pvals_p
@@ -68,7 +68,7 @@ for poi in pois.keys():
   fit.setLinearOnly(True)
 
   # Fixed scan
-  print "    * Linear: fixed"
+  print("    * Linear: fixed")
   pvals_f_lin, chi2_f_lin = fit.scan_fixed(poi,npoints=100)
   results[poi]["fixed_linear"] = od()
   results[poi]["fixed_linear"]['pvals'] = pvals_f_lin
@@ -76,7 +76,7 @@ for poi in pois.keys():
   results[poi]["fixed_linear"]['dchi2'] = chi2_f_lin-chi2_f_lin.min()
 
   # Profiled scan (full)
-  print "    * Linear: profiled"
+  print("    * Linear: profiled")
   pvals_p_lin, chi2_p_lin, all_pvals_p_lin = fit.scan_profiled(poi,npoints=50,freezeOtherPOIS=[],resetEachStep=opt.doReset,reverseScan=opt.doFlip,verbose=True)
   results[poi]["profiled_linear"] = od()
   results[poi]["profiled_linear"]['pvals'] = pvals_p_lin
@@ -90,7 +90,7 @@ else: extStr += "_observed"
 if opt.doReset: extStr += "_reset"
 if opt.doFlip: extStr += "_flip"
 
-with open("results%s.pkl"%extStr,"w") as fpkl: pickle.dump(results,fpkl)
+with open("results%s.pkl"%extStr,"wb") as fpkl: pickle.dump(results,fpkl)
 
 #from scipy import interpolate
 #import matplotlib.pyplot as plt

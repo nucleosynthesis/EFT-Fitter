@@ -8,6 +8,7 @@ import sys
 import re
 
 from collections import OrderedDict as od
+verbose=False
 
 class fitter:
 
@@ -30,7 +31,7 @@ class fitter:
     self.PList = []
     self.P0 = []
     self.PBounds = []
-    for p, vals in self.POIS.iteritems():
+    for p, vals in self.POIS.items():
       self.PList.append(p)
       self.P0.append(vals['nominal'])
       self.PBounds.append( (vals['range'][0],vals['range'][1]) )
@@ -42,7 +43,7 @@ class fitter:
     # Extract all pois which enter scaling functions: add to dict
     self.PTerms = od()
     for _input in self.INPUTS:
-      for i in xrange(_input.nbins):
+      for i in range(_input.nbins):
         sfs = [_input.ProdScaling[i],_input.DecayScaling[i][0],_input.DecayScaling[i][1]]
         for sf in sfs:
           for term in sf:
@@ -63,7 +64,7 @@ class fitter:
 
   def resetPOIS(self):
     P = []
-    for p, vals in self.POIS.iteritems(): P.append(vals['nominal'])
+    for p, vals in self.POIS.items(): P.append(vals['nominal'])
     self.P0 = np.array(P)
     # Re-evaluate the PTerms
     self.evaluatePTerms()
@@ -105,7 +106,7 @@ class fitter:
   def evaluateScalingFunctions(self,terms):   
     # Calculate scaling function
     mu = terms['const']
-    for term, coeff in terms.iteritems():
+    for term, coeff in terms.items():
       if term == "const": continue
       # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       # Linear terms
@@ -139,7 +140,7 @@ class fitter:
 
   # Function to calculate chi2 for current set of POIS
   def getChi2(self,verbose=True):
-    return GetChi2([],self,verbose=verbose)
+    return GetChi2([],self)
 
 
   # Minimizer function
@@ -196,7 +197,7 @@ class fitter:
       if resetEachStep: self.resetPOIS()
       self.setPOIS({poi:p})
       self.minimize(freezePOIS=freezeOtherPOIS,verbose=False)
-      if verbose: print " --> [VERBOSE] Finished point (%g/%g): %s = %.3f | %s | chi2 = %.4f"%(ip,npoints,poi,p,self.getPOIStr(),self.FitResult.fun)
+      if verbose: print(" --> [VERBOSE] Finished point (%g/%g): %s = %.3f | %s | chi2 = %.4f"%(ip,npoints,poi,p,self.getPOIStr(),self.FitResult.fun))
       chi2.append(self.FitResult.fun)
       allpvals.append(self.P0)
 
@@ -245,7 +246,7 @@ class fitter:
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Chi2: function to minimize
 #  * Takes as input array of POIS to fit, if list is empty then will not reset
-def GetChi2(P,FIT,verbose=False):
+def GetChi2(P,FIT):
   chi2 = 0
 
   # Set POIS for minimizer
@@ -255,34 +256,35 @@ def GetChi2(P,FIT,verbose=False):
   # Calculate chi2 terms
   for _input in FIT.INPUTS:
     X0 = _input.X0
-    X = np.asarray( [ FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in xrange(_input.nbins)] )
+    X = np.asarray( [ FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)] )
     xarr = X-X0
     xarrT = xarr.T
     chi2 += xarrT.dot( _input.Vinv.dot( xarr ) )
 
   if verbose:
-    print " ----------------------------------------------------------------------------"
-    print " --> Scaling functions: Linear" if FIT.linearOnly else " --> Scaling functions: Quadratic"
-    print "" 
-    print " --> Parameters of interest:"
+    print(" ----------------------------------------------------------------------------")
+    print(" --> Scaling functions: Linear" if FIT.linearOnly else " --> Scaling functions: Quadratic")
+    print("")
+    print(" --> Parameters of interest:")
     for ip,ipoi in enumerate(FIT.PList): 
-     if ipoi in FIT.PToFitList: print "   * %s = %.3f"%(ipoi,FIT.P0[ip])
-     else: print "   * %s = %.3f (fixed)"%(ipoi,FIT.P0[ip])
+     if ipoi in FIT.PToFitList: print("   * %s = %.3f"%(ipoi,FIT.P0[ip]))
+     else: print("   * %s = %.3f (fixed)"%(ipoi,FIT.P0[ip]))
 
     for _input in FIT.INPUTS:
-      print "\n --> Inputs: %s"%_input.name
+      print("\n --> Inputs: %s"%_input.name)
       X0 = _input.X0
-      X = np.asarray( [ FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in xrange(_input.nbins)] )
-      for ix in xrange(_input.nbins):
-        print "   * %-50s : X0 = %.6f, X(p) = %.6f"%(_input.XList[ix],X0[ix],X[ix])
-      print "   * Vij = "
+      xvals_list = [ FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)]
+      X = np.asarray(xvals_list)
+      for ix in range(_input.nbins):
+        print("   * %-50s : X0 = %.6f, X(p) = %.6f"%(_input.XList[ix],X0[ix],X[ix]))
+      print("   * Vij = ")
       for i in range(len(_input.Vinv[0])):
         vstr =  "           ("
         for j in range(len(_input.Vinv[0])): vstr += " %-5.2f "%_input.Vinv[i][j]
         vstr += ")"
-        print vstr
+        print(vstr)
 
-    print "\n --> Result: chi2 = %.8f"%chi2
+    print("\n --> Result: chi2 = %.8f"%chi2)
       
   return chi2
  
@@ -298,7 +300,7 @@ class INPUT:
     # X0
     self.X0 = []
     self.XList = []
-    for x, vals in inputMeasurement['X'].iteritems(): 
+    for x, vals in inputMeasurement['X'].items(): 
       self.XList.append(x)
       if doAsimov: self.X0.append(1.)
       else: self.X0.append(float(vals['bestfit']))
@@ -307,7 +309,7 @@ class INPUT:
     # Scaling functions
     self.ProdScaling = []
     self.DecayScaling = []
-    for x, vals in inputMeasurement['X'].iteritems(): 
+    for x, vals in inputMeasurement['X'].items(): 
       # Extract production and decay strings
       prod = "_".join(x.split("_")[:-1])
       dec = x.split("_")[-1]
@@ -315,9 +317,9 @@ class INPUT:
       # For merged STXS bins
       if vals['merged']:
         terms = od()
-        for stxs_bin,frac in vals['STXS_fractions'].iteritems():
+        for stxs_bin,frac in vals['STXS_fractions'].items():
           _terms = extractTerms(functions[stxs_bin],multiplier=frac)
-          for k,v in _terms.iteritems():
+          for k,v in _terms.items():
             if k in terms: terms[k] = terms[k]+v
             else: terms[k] = v
         self.ProdScaling.append(terms)
@@ -341,21 +343,21 @@ class INPUT:
           if ix == jx: p = 1.
           else: 
             p = 0.
-            print " --> [WARNING] No correlation info given for (%s,%s). Assuming = 0"%(ix,jx)
+            print(" --> [WARNING] No correlation info given for (%s,%s). Assuming = 0"%(ix,jx))
         corr.append(p)
     corr = array.array('d',corr)
 
     # Extract symmetrized errors
     # FIXME: add something more appropriate for observed!
     err = []
-    for x,vals in inputMeasurement['X'].iteritems():
+    for x,vals in inputMeasurement['X'].items():
       if doAsimov: err.append( 0.5*(vals['Up01SigmaExp']+vals['Down01SigmaExp']) )
       else: err.append( 0.5*(vals['Up01Sigma']+vals['Down01Sigma']) )
     
     # Do some squarification and inverting
     nbins = len( inputMeasurement['X'].keys() )
-    corr_sq = [ corr[i:i+nbins] for i in xrange(0,len(corr),nbins)]
-    cov_sq = [ [ corr_sq[i][j]*err[i]*err[j] for i in xrange(nbins)] for j in xrange(nbins) ]
+    corr_sq = [ corr[i:i+nbins] for i in range(0,len(corr),nbins)]
+    cov_sq = [ [ corr_sq[i][j]*err[i]*err[j] for i in range(nbins)] for j in range(nbins) ]
     self.err_mat = np.array(cov_sq)
     self.Vinv = linalg.inv(self.err_mat)
     self.nbins = nbins
@@ -378,7 +380,7 @@ def extractTerms(_func,multiplier=1):
 # Terms to function
 def termsToFunction(_terms):
   f = ""
-  for k,v in _terms.iteritems():
+  for k,v in _terms.items():
     if k == "const": f += "%.4f"%v
     elif k[0] == "A": f += "+%.4f*%s"%(v,k.split("_")[-1])
     elif k[0] == "B": 
@@ -393,4 +395,4 @@ def printMatrix(_mat):
     vstr =  "("
     for j in range(len(_mat[0])): vstr += " %-5.2f "%_mat[i][j]
     vstr += ")"
-    print vstr
+    print(vstr)
