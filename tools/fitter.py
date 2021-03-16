@@ -257,9 +257,13 @@ def GetChi2(P,FIT):
   for _input in FIT.INPUTS:
     X0 = _input.X0
     X = np.asarray( [ FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)] )
-    xarr = X-X0
-    xarrT = xarr.T
-    chi2 += xarrT.dot( _input.Vinv.dot( xarr ) )
+    
+    if _input.type == "spline" :
+          chi2 += sum([X0[j].evaluate({"%s"%_input.XList[j]:X[j]}) for j in range(len(X))])
+    else: 
+          xarr = X-X0
+          xarrT = xarr.T
+          chi2 += xarrT.dot( _input.Vinv.dot( xarr ) )
 
   if verbose:
     print(" ----------------------------------------------------------------------------")
@@ -272,6 +276,7 @@ def GetChi2(P,FIT):
 
     for _input in FIT.INPUTS:
       print("\n --> Inputs: %s"%_input.name)
+      if _input.type == "spline" : continue
       X0 = _input.X0
       xvals_list = [ FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)]
       X = np.asarray(xvals_list)
@@ -302,8 +307,13 @@ class INPUT:
     self.XList = []
     for x, vals in inputMeasurement['X'].items(): 
       self.XList.append(x)
-      if doAsimov: self.X0.append(1.)
-      else: self.X0.append(float(vals['bestfit']))
+      if "likelihood" in vals.keys() : 
+        self.type="spline"
+        self.X0.append(vals["likelihood"])
+        vals["merged"]=False
+      else:
+        if doAsimov: self.X0.append(1.)
+        else: self.X0.append(float(vals['bestfit']))
     self.X0 = np.asarray(self.X0)
 
     # Scaling functions
@@ -333,6 +343,10 @@ class INPUT:
       # Add list of partial width and total width scaling
       self.DecayScaling.append( [extractTerms(functions[dec]),extractTerms(functions['tot'])] )
 
+    if self.type=="spline": 
+      nbins = len( inputMeasurement['X'].keys() )
+      self.nbins = nbins
+      return
     # Error matrix
     corr = []
     for ix in inputMeasurement['X']:

@@ -11,6 +11,7 @@ from optparse import OptionParser
 def get_options():
   parser = OptionParser()
   parser.add_option('--poi', dest='poi', default='cG', help="Main poi to plot")
+  parser.add_option('--param_set', dest='param_set', default='params.HEL', help="Definition of parameters (in module)")
   parser.add_option('--otherPOIs', dest='otherPOIs', default='', help="Comma separated list of profiled pois")
   parser.add_option('--inputPkl', dest='inputPkl', default='results.pkl', help="Input pkl file storing results")
   parser.add_option('--doProfiledPOIFrac', dest='doProfiledPOIFrac', default=False, action="store_true", help="Plot fractional profiled poi instead of the pull")
@@ -24,7 +25,7 @@ with open(opt.inputPkl,"rb") as fpkl: results = pickle.load(fpkl)
 
 # Extract full list of pois
 from importlib import import_module
-pois = import_module("params.HEL").pois
+pois = import_module(opt.param_set).pois
 
 if opt.otherPOIs == "all":
   opoistr = ""
@@ -139,6 +140,7 @@ def extractVals( _p, _dchi2 ):
 grs = od()
 for poi in pois:
   for mode in ['fixed','profiled','fixed_linear','profiled_linear']:
+    print(poi)
     #dchi2 = results[poi][mode]['dchi2'][1:]
     dchi2 = results[poi][mode]['dchi2']
     #p = results[poi][mode]['pvals'][1:]

@@ -30,7 +30,7 @@ for i in opt.inputs.split(","):
   _input = od()
   _input['name'] = _cfg.name
   _input['X'] = _cfg.X
-  _input['rho'] = _cfg.rho
+  if "rho" in _input.keys(): _input['rho'] = _cfg.rho
   inputs.append(_input)
 
 from tools.fitter import *
