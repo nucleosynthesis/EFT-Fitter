@@ -14,6 +14,7 @@ def get_options():
   parser.add_option('--doAsimov', dest='doAsimov', default=False, action="store_true", help="Do asimov fit (i.e. set all best-fit to nominal)")
   parser.add_option('--doReset', dest='doReset', default=False, action="store_true", help="Reset poi values each step in profiled scan")
   parser.add_option('--doFlip', dest='doFlip', default=False, action="store_true", help="Start scan from max val of poi")
+  parser.add_option('--doLinear', dest='doLinear', default=False, action="store_true", help="Also run the scan using linear terms of functions (defined in --functions) -- only appropriate for EFT models with SM+linear+BSM terms)")
   return parser.parse_args()
 (opt,args) = get_options()
 
@@ -65,6 +66,7 @@ for poi in pois.keys():
   results[poi]["profiled"]['dchi2'] = chi2_p-chi2_p.min()
 
   # Linear
+  if not opt.doLinear: continue
   fit.setLinearOnly(True)
 
   # Fixed scan
@@ -83,6 +85,7 @@ for poi in pois.keys():
   results[poi]["profiled_linear"]['chi2'] = chi2_p_lin
   results[poi]["profiled_linear"]['allpvals'] = all_pvals_p_lin
   results[poi]["profiled_linear"]['dchi2'] = chi2_p_lin-chi2_p_lin.min() 
+  
 
 extStr = ""
 if opt.doAsimov: extStr += "_asimov"

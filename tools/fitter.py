@@ -259,7 +259,8 @@ def GetChi2(P,FIT):
     X = np.asarray( [ FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)] )
     
     if _input.type == "spline" :
-          chi2 += sum([X0[j].evaluate({"%s"%_input.XList[j]:X[j]}) for j in range(len(X))])
+          chi2 += X0.evaluate({"%s"%_input.XList[j]:X[j] for j in range(len(X))})
+          return chi2
     else: 
           xarr = X-X0
           xarrT = xarr.T
@@ -305,21 +306,28 @@ class INPUT:
     # X0
     self.X0 = []
     self.XList = []
-    for x, vals in inputMeasurement['X'].items(): 
-      self.XList.append(x)
-      if "likelihood" in vals.keys() : 
-        self.type="spline"
-        self.X0.append(vals["likelihood"])
-        vals["merged"]=False
-      else:
+    
+    if (len(inputMeasurement['X'].keys()))>1:
+      self.type = "measurement"
+      for x, vals in inputMeasurement['X'].items(): 
         if doAsimov: self.X0.append(1.)
         else: self.X0.append(float(vals['bestfit']))
-    self.X0 = np.asarray(self.X0)
+        self.XList.append(x)
+      self.X0 = np.asarray(self.X0)
+    else:
+      self.type = "spline"
+      self.X0 = inputMeasurement['X']["likelihood"]['likelihood']
+      self.XList = self.X0.getParameters()
+      inputMeasurement['X']['likelihood']["merged"] = False
+      for k in self.XList  : 
+        inputMeasurement['X'][k] = {"likelihood":1} # could use this better
+        inputMeasurement['X'][k]["merged"] = False
 
     # Scaling functions
     self.ProdScaling = []
     self.DecayScaling = []
-    for x, vals in inputMeasurement['X'].items(): 
+    for x, vals in inputMeasurement["X"].items(): 
+      if x == "likelihood": continue
       # Extract production and decay strings
       prod = "_".join(x.split("_")[:-1])
       dec = x.split("_")[-1]
@@ -344,7 +352,7 @@ class INPUT:
       self.DecayScaling.append( [extractTerms(functions[dec]),extractTerms(functions['tot'])] )
 
     if self.type=="spline": 
-      nbins = len( inputMeasurement['X'].keys() )
+      nbins = len( self.XList )
       self.nbins = nbins
       return
     # Error matrix

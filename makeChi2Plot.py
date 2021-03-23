@@ -20,6 +20,8 @@ def get_options():
   return parser.parse_args()
 (opt,args) = get_options()
 
+if opt.doLinear: modes = ['fixed','fixed_linear','profiled','profiled_linear']
+else: modes = ['fixed','profiled']
 # Load results
 with open(opt.inputPkl,"rb") as fpkl: results = pickle.load(fpkl)
 
@@ -139,7 +141,7 @@ def extractVals( _p, _dchi2 ):
 # Do interpolations and make dchi2 graphs
 grs = od()
 for poi in pois:
-  for mode in ['fixed','profiled','fixed_linear','profiled_linear']:
+  for mode in modes: #['fixed','profiled','fixed_linear','profiled_linear']:
     print(poi)
     #dchi2 = results[poi][mode]['dchi2'][1:]
     dchi2 = results[poi][mode]['dchi2']
@@ -329,8 +331,6 @@ h_axes.GetYaxis().SetLabelOffset(0.007)
 h_axes.GetYaxis().CenterTitle()
 h_axes.Draw()
 
-if opt.doLinear: modes = ['fixed','fixed_linear','profiled','profiled_linear']
-else: modes = ['fixed','profiled']
 
 for mode in modes:
   for k,v in styleMap[mode].items(): getattr(grs["%s_%s"%(opt.poi,mode)],"Set%s"%k)(v)
