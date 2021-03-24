@@ -103,6 +103,8 @@ class fitter:
       self.PTerms[pterm] = x
   
   # Evaluate scaling functions for current set of POIS
+  # this should realy be moved to the function definition themselves
+  # to allow more flexibility in defining the map of params -> predictions 
   def evaluateScalingFunctions(self,terms):   
     # Calculate scaling function
     mu = terms['const']
@@ -258,7 +260,8 @@ def GetChi2(P,FIT):
     X0 = _input.X0
     X = np.asarray( [ FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)] )
     
-    if _input.type == "spline" :
+    if _input.type == "spline": 
+          #print("evaluate point scale function", {"%s"%_input.XList[j]:X[j] for j in range(len(X))}) 
           chi2 += X0.evaluate({"%s"%_input.XList[j]:X[j] for j in range(len(X))})
           return chi2
     else: 
@@ -328,6 +331,14 @@ class INPUT:
     self.DecayScaling = []
     for x, vals in inputMeasurement["X"].items(): 
       if x == "likelihood": continue
+      
+      # first check if the function is already provided 
+      if x in functions.keys(): 
+       self.ProdScaling.append( extractTerms(functions[x]) )
+       self.DecayScaling.append( [extractTerms("1."),extractTerms(functions['tot'])] )
+       continue
+      # Then appeal to prod*decay
+
       # Extract production and decay strings
       prod = "_".join(x.split("_")[:-1])
       dec = x.split("_")[-1]
@@ -355,6 +366,7 @@ class INPUT:
       nbins = len( self.XList )
       self.nbins = nbins
       return
+
     # Error matrix
     corr = []
     for ix in inputMeasurement['X']:
