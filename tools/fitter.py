@@ -71,7 +71,7 @@ class fitter:
 
   def getPOIStr(self):
     pstr = "("
-    for ip,p in enumerate(self.PList): pstr += " %s = %.2f,"%(p,self.P0[ip])
+    for ip,p in enumerate(self.PList): pstr += " %s = %.4f,"%(p,self.P0[ip])
     pstr = "%s )"%pstr[:-1]
     return pstr 
 
@@ -158,8 +158,9 @@ class fitter:
         PToFitBounds.append(self.PBounds[ip])
 
     # Do minimisation
-    self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,method='TNC')
-
+    #print ("need to fit",PToFit)
+    self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,method='Nelder-mead')
+    #print(self.FitResult)
     # Set POI values for those profiled
     for ip, ipoi in enumerate(self.PToFitList): self.setPOIS({ipoi:self.FitResult.x[ip]})
 
@@ -260,9 +261,13 @@ def GetChi2(P,FIT):
     X0 = _input.X0
     X = np.asarray( [ FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)] )
     
-    if _input.type == "spline": 
-          #print("evaluate point scale function", {"%s"%_input.XList[j]:X[j] for j in range(len(X))}) 
-          chi2 += X0.evaluate({"%s"%_input.XList[j]:X[j] for j in range(len(X))})
+    if _input.type == "spline":
+          #print("to fit -> ",FIT.PToFitList)
+          #for ip,ipoi in enumerate(FIT.PToFitList): 
+            #print({ipoi:P[ip]})
+          #print("evaluated -> ",{"%s"%_input.XList[j]:X[j] for j in range(len(X))})
+          chi2 = X0.evaluate({"%s"%_input.XList[j]:X[j] for j in range(len(X))})
+          #print("...ch2  = ",chi2)
           return chi2
     else: 
           xarr = X-X0
