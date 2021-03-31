@@ -12,14 +12,21 @@ verbose=False
 
 class fitter:
 
-  def __init__(self,parametersOfInterest,functions,inputs,doAsimov=False):
+  def __init__(self,parametersOfInterest,functions,inputs,doAsimov=False,theory_uncerts=None):
     self.POIS = parametersOfInterest
     self.FUNCTIONS = functions
     self.INPUTS = []
     self.doAsimov = doAsimov
     self.linearOnly = False
 
+    self.thuncerts = {}
+    self.nps = []
+    self.npindex = {}
+    self.has_uncerts = False
+    self.iX = 0
+
     self.prepareInputs(inputs)
+    if theory_uncerts: self.prepareTHU(theory_uncerts)
     self.preparePOIS()
     self.preparePTerms()
 
@@ -27,6 +34,32 @@ class fitter:
     for im in inputMeasurements:
       self.INPUTS.append( INPUT(im,self.FUNCTIONS,self.doAsimov) )
 
+  def prepareTHU(self,thinput):
+    # add the uncertainties
+    print("Adding theory uncertainties")
+    self.has_uncerts = True
+    for x,v in thinput['TH'].items():
+      self.thuncerts[x] = v
+      self.nps.append(0)
+      self.npindex[x]  = self.iX
+      self.iX+=1
+    # correlations 
+    corr = []
+    nbins = self.iX
+    for ix in thinput['TH']:
+      for jx in thinput['TH']:
+        if (ix,jx) in thinput['rhoTH'].keys(): p = thinput['rhoTH'][(ix,jx)]
+        elif (jx,ix) in thinput['rhoTH'].keys(): p = thinput['rhoTH'][(jx,ix)]
+        else:
+          if ix == jx: p = 1.
+          else: 
+            p = 0.
+            print(" --> [WARNING] No correlation info given for (%s,%s). Assuming = 0"%(ix,jx))
+        corr.append(p)
+    corr = array.array('d',corr)
+    corr_sq = [ corr[i:i+nbins] for i in range(0,len(corr),nbins)]
+    self.tHVinv = linalg.inv(corr_sq)
+    
   def preparePOIS(self):
     self.PList = []
     self.P0 = []
@@ -62,6 +95,24 @@ class fitter:
     # Re-evaluate the PTerms
     self.evaluatePTerms()
 
+  def setNuisances(self,key_vals):
+    #print("set nuisances",key_vals)
+    for k,v in key_vals.items():
+      #ind = self.npindex[k]
+      self.nps[k] = v
+
+  def evaluateTHUncertainty(self,expr):
+    if not self.has_uncerts: return 0
+    #print("parameter shifted",expr)
+    #print("self.nps",self.nps)
+    #print("self.npindex[expr]",self.npindex[expr])
+    #print("return value ->",self.nps[self.npindex[expr]]*self.thuncerts[expr])
+    return self.nps[self.npindex[expr]]*self.thuncerts[expr]
+
+  def resetNuisances(self):
+    if self.has_uncerts:
+     for iK in range(len(self.nps)): self.nps[iK] = 0
+ 
   def resetPOIS(self):
     P = []
     for p, vals in self.POIS.items(): P.append(vals['nominal'])
@@ -157,10 +208,14 @@ class fitter:
         PToFit.append(self.P0[ip])
         PToFitBounds.append(self.PBounds[ip])
 
+    if self.has_uncerts: 
+      PToFit.extend([np for np in self.nps])
+      PToFitBounds.extend([[-4,4] for i in self.nps])
+
     # Do minimisation
     #print ("need to fit",PToFit)
     #self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,method='Nelder-mead')
-    self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,options={'ftol':1e-1,'eps':1e-3})
+    self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,options={'ftol':1e-2,'eps':1e-3})
     #print(self.FitResult)
     # Set POI values for those profiled
     for ip, ipoi in enumerate(self.PToFitList): self.setPOIS({ipoi:self.FitResult.x[ip]})
@@ -176,19 +231,23 @@ class fitter:
   def scan_fixed(self,poi,npoints=1000,reset=True):
     # Reset all pois to nominal values
     if reset: self.resetPOIS()
+    self.resetNuisances()
     # Loop over range of pois and calc chi2
     pvals = np.linspace( self.POIS[poi]['range'][0], self.POIS[poi]['range'][1], npoints )
     chi2 = []
     for p in pvals:
       self.setPOIS({poi:p})
-      chi2.append(self.getChi2(verbose=False))
+      if self.has_uncerts: 
+        self.minimize(freezePOIS=self.POIS.keys(),verbose=False) 
+        chi2.append(self.FitResult.fun) 
+      else: chi2.append(self.getChi2(verbose=False))
     return pvals, np.array(chi2)
 
   # Function to perform chi2 scan when profiling other parameters
   def scan_profiled(self,poi,npoints=100,freezeOtherPOIS=[],reset=True,resetEachStep=False,reverseScan=False,verbose=False):
     # Reset all pois to nominal values
     if reset: self.resetPOIS()
-
+    self.resetNuisances()
     # Add scanned parameter into list of params to freeze
     if poi not in freezeOtherPOIS: freezeOtherPOIS.append(poi)    
 
@@ -200,7 +259,9 @@ class fitter:
     for ip,p in enumerate(pvals):
       if resetEachStep: self.resetPOIS()
       self.setPOIS({poi:p})
+      print("nuisances before minimization",self.nps)
       self.minimize(freezePOIS=freezeOtherPOIS,verbose=False)
+      print("nuisances after minimization",self.nps)
       if verbose: print(" --> [VERBOSE] Finished point (%g/%g): %s = %.3f | %s | chi2 = %.4f"%(ip,npoints,poi,p,self.getPOIStr(),self.FitResult.fun))
       chi2.append(self.FitResult.fun)
       allpvals.append(self.P0)
@@ -255,19 +316,32 @@ def GetChi2(P,FIT):
 
   # Set POIS for minimizer
   if len(P) != 0:
-    for ip,ipoi in enumerate(FIT.PToFitList): FIT.setPOIS({ipoi:P[ip]})
+    for ip,ipoi in enumerate(FIT.PToFitList): 
+      FIT.setPOIS({ipoi:P[ip]})
 
+  init_i = len(FIT.PToFitList)
+  nuisance_parameter_vals = [P[i] for i  in range(init_i,len(P))]
+  # Set nuisance parameters -> need to have the FIT object keep track of which one is which, but once its 
+  # decided it will be fixed and can be ignored 
+  #print("nuisance param vals = ",nuisance_parameter_vals)
+  if FIT.has_uncerts: 
+    for iN in range(len(nuisance_parameter_vals)) : FIT.setNuisances({iN:nuisance_parameter_vals[iN]})
+    nuisance_parameters = np.asarray(nuisance_parameter_vals)
+    nuisance_parametersT = nuisance_parameters.T
+    chi2 += nuisance_parametersT.dot(FIT.tHVinv.dot(nuisance_parameters))
   # Calculate chi2 terms
   for _input in FIT.INPUTS:
     X0 = _input.X0
-    X = np.asarray( [ FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)] )
+    # first thing should return 0 if there's no systematics. 
+    X = np.asarray( [ (1+FIT.evaluateTHUncertainty(_input.XList[i]))*FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)] )
     
+
     if _input.type == "spline":
           #print("to fit -> ",FIT.PToFitList)
           #for ip,ipoi in enumerate(FIT.PToFitList): 
             #print({ipoi:P[ip]})
           #print("evaluated -> ",{"%s"%_input.XList[j]:X[j] for j in range(len(X))})
-          chi2 = X0.evaluate({"%s"%_input.XList[j]:X[j] for j in range(len(X))})
+          chi2 += X0.evaluate({"%s"%_input.XList[j]:X[j] for j in range(len(X))})
           #print("...ch2  = ",chi2)
           return chi2
     else: 
