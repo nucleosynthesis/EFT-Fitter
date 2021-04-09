@@ -30,6 +30,8 @@ class fitter:
     self.preparePOIS()
     self.preparePTerms()
 
+    self.global_min_chi2 = 0 
+
   def prepareInputs(self,inputMeasurements):
     for im in inputMeasurements:
       self.INPUTS.append( INPUT(im,self.FUNCTIONS,self.doAsimov) )
@@ -82,7 +84,7 @@ class fitter:
           for term in sf:
             if term == "const": continue
             # Ignore prefactor (A/B)
-            for poi in term.split("_")[1:]:
+            for poi in ["_".join(term.split("_")[1:])]:
               # If poi not already in self.PTerms then add
               if poi not in self.PTerms.keys(): self.PTerms[poi] = 0.
 
@@ -164,7 +166,8 @@ class fitter:
       # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       # Linear terms
       if term[0] == "A":
-        ipoi = term.split("_")[-1]
+        ipoi = term.split("_")[1:]
+        ipoi = "_".join(ipoi)
         # Add term to scaling function
         mu += coeff*self.PTerms[ipoi]
 
@@ -187,7 +190,6 @@ class fitter:
 
     # Confine mu to be positive: rounding issue with prefactors
     #return max(0.,mu)
-
     return mu
 
 
@@ -195,6 +197,21 @@ class fitter:
   def getChi2(self,verbose=True):
     return GetChi2([],self)
 
+  # Function to set the parameters to the global minimum
+  def setGlobalMinimum(self,setParamsToNominal=False): 
+
+    #for p in self.POIS.keys(): print(p,self.POIS[p]['nominal'])
+    #print(self.P0)
+    self.minimize(freezePOIS=[],verbose=False)
+    self.global_min_chi2=self.FitResult.fun
+    self.evaluatePTerms()
+    if setParamsToNominal :
+      i=0 
+      for  p,vals in self.POIS.items(): 
+        vals['nominal'] = self.P0[i] 
+        i+=1
+    print("Best-fit at global min ...")
+    for p in self.POIS.keys(): print(" ",p,self.POIS[p]['nominal'])
 
   # Minimizer function
   def minimize(self,freezePOIS=[],verbose=True):
@@ -215,7 +232,7 @@ class fitter:
     # Do minimisation
     #print ("need to fit",PToFit)
     #self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,method='Nelder-mead')
-    self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,options={'ftol':1e-2,'eps':1e-3})
+    self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,options={'ftol':1e-2,'eps':1e-4})
     #print(self.FitResult)
     # Set POI values for those profiled
     for ip, ipoi in enumerate(self.PToFitList): self.setPOIS({ipoi:self.FitResult.x[ip]})
@@ -232,6 +249,13 @@ class fitter:
     # Reset all pois to nominal values
     if reset: self.resetPOIS()
     self.resetNuisances()
+    
+    # step one is to do a global fit to find the minimum 
+    toFreezePOIs = list(self.POIS.keys())
+    toFreezePOIs.remove(poi)
+    self.minimize(freezePOIS=toFreezePOIs,verbose=False) 
+    nll_global = self.FitResult.fun
+    
     # Loop over range of pois and calc chi2
     pvals = np.linspace( self.POIS[poi]['range'][0], self.POIS[poi]['range'][1], npoints )
     chi2 = []
@@ -239,8 +263,8 @@ class fitter:
       self.setPOIS({poi:p})
       if self.has_uncerts: 
         self.minimize(freezePOIS=self.POIS.keys(),verbose=False) 
-        chi2.append(self.FitResult.fun) 
-      else: chi2.append(self.getChi2(verbose=False))
+        chi2.append(self.FitResult.fun-nll_global) 
+      else: chi2.append(self.getChi2(verbose=False)-nll_global)
     return pvals, np.array(chi2)
 
   # Function to perform chi2 scan when profiling other parameters
@@ -259,11 +283,11 @@ class fitter:
     for ip,p in enumerate(pvals):
       if resetEachStep: self.resetPOIS()
       self.setPOIS({poi:p})
-      print("nuisances before minimization",self.nps)
+      #print("nuisances before minimization",self.nps)
       self.minimize(freezePOIS=freezeOtherPOIS,verbose=False)
-      print("nuisances after minimization",self.nps)
-      if verbose: print(" --> [VERBOSE] Finished point (%g/%g): %s = %.3f | %s | chi2 = %.4f"%(ip,npoints,poi,p,self.getPOIStr(),self.FitResult.fun))
-      chi2.append(self.FitResult.fun)
+      #print("nuisances after minimization",self.nps)
+      if verbose: print(" --> [VERBOSE] Finished point (%g/%g): %s = %.3f | %s | chi2 = %.4f"%(ip,npoints,poi,p,self.getPOIStr(),self.FitResult.fun-self.global_min_chi2))
+      chi2.append(self.FitResult.fun-self.global_min_chi2)
       allpvals.append(self.P0)
 
     # Drop first element: minimizer not yet steady
@@ -334,12 +358,11 @@ def GetChi2(P,FIT):
     X0 = _input.X0
     # first thing should return 0 if there's no systematics. 
     X = np.asarray( [ (1+FIT.evaluateTHUncertainty(_input.XList[i]))*FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)] )
-    
-
     if _input.type == "spline":
           #print("to fit -> ",FIT.PToFitList)
           #for ip,ipoi in enumerate(FIT.PToFitList): 
-            #print({ipoi:P[ip]})
+          #  print({ipoi:P[ip]})
+          #print(X)
           #print("evaluated -> ",{"%s"%_input.XList[j]:X[j] for j in range(len(X))})
           chi2 += X0.evaluate({"%s"%_input.XList[j]:X[j] for j in range(len(X))})
           #print("...ch2  = ",chi2)

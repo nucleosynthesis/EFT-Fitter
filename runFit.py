@@ -17,6 +17,7 @@ def get_options():
   parser.add_option('--doReset', dest='doReset', default=False, action="store_true", help="Reset poi values each step in profiled scan")
   parser.add_option('--doFlip', dest='doFlip', default=False, action="store_true", help="Start scan from max val of poi")
   parser.add_option('--doLinear', dest='doLinear', default=False, action="store_true", help="Also run the scan using linear terms of functions (defined in --functions) -- only appropriate for EFT models with SM+linear+BSM terms)")
+  parser.add_option('--setParamsToNominal', dest='setParamsToNominal', default=False, action="store_true", help="Set nominal values of the POIs to those at the global minimum")
   return parser.parse_args()
 (opt,args) = get_options()
 
@@ -48,6 +49,9 @@ fit = fitter(pois,functions,inputs,opt.doAsimov,opt.theory_uncerts)
 
 # Perform scans
 results = od()
+
+fit.setGlobalMinimum(opt.setParamsToNominal)
+
 for poi in pois.keys():
 
   print(" --> Running fits for: %s"%poi)

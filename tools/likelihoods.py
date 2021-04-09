@@ -11,7 +11,7 @@ class rbf_spline:
         self._initialised = False 
         self._use_scipy_interp = use_scipy_interp
     
-    def _initialise(self,input_points,target_col,eps,rescaleAxis):
+    def _initialise(self,input_points,target_col,eps,rescaleAxis=True):
         # This is the basic function 
         # Expects a list of dictionaries (inputs_points) 
         # eg [{"x":1,"y":2,"f":4},{"x":3,"y":1,"f":6} ... ]
@@ -30,15 +30,19 @@ class rbf_spline:
         if self._ndim!=len(self._parameter_keys): 
             sys.exit("Error - initialise given points with more dimensions (%g) than ndim (%g)"%(len(self._parameter_keys),self._ndim))
 
-        self._axis_pts = self._M**1./self._ndim
+        self._axis_pts = self._M**(1./self._ndim)
 
         self._v_map = [ {k:v for k,v in a.items() if k!=target_col} for a in input_points ]
         self._r_map =  {k: [min([input_points[i][k] for i in range(self._M)]), \
                             max([input_points[i][k] for i in range(self._M)])] \
                             for k in self._parameter_keys}
         f_vec = [input_points[i][target_col] for i in range(self._M)]
-       
+        self._f_vec = f_vec
+        
+        max_f_vec = max([abs(f) for f in f_vec])
+        f_vec = np.array(f_vec)/max_f_vec
         self.calculateWeights(f_vec)
+        self._max_f_vec = max_f_vec
     
     def _initialise_scipy(self,input_points,target_col): 
         self._M = len(input_points)
@@ -52,6 +56,9 @@ class rbf_spline:
         f_vec = [p[1] for p in points]
         p_vec = [p[0] for p in points] 
         self._f = interpolate.interp1d(p_vec,f_vec,"cubic")
+        self._r_map =  {k: [min([input_points[i][k] for i in range(self._M)]), \
+                            max([input_points[i][k] for i in range(self._M)])] \
+                            for k in self._parameter_keys}
         self._initialised = True
 
     def initialise(self,input_points,target_col,eps=10,rescaleAxis=True):
@@ -72,7 +79,8 @@ class rbf_spline:
     
     def diff2(self,a,b,k):
         v=0
-        if self._rescaleAxis: v=self._axis_pts*(a-b)/(self._r_map[k][1]-self._r_map[k][0])
+        if self._rescaleAxis: v=(self._axis_pts)*(a-b)/(self._r_map[k][1]-self._r_map[k][0])
+        #if self._rescaleAxis: v=(a-b)/abs((self._r_map[k][1]-self._r_map[k][0]))
         else: v=a-b
         return v*v  
 
@@ -87,7 +95,7 @@ class rbf_spline:
     def radialFunc(self,d2):
         expo = (d2/(self._eps*self._eps))
         ret_val = np.exp(-1.*expo)  
-        if ret_val < 1e-3 : return 0
+        if ret_val < 1e-12 : return 0
         return ret_val
 
     def evaluate(self,point):
@@ -104,6 +112,7 @@ class rbf_spline:
         if self._use_scipy_interp: 
             return self._f(point[self._parameter_keys[0]])
         vals = self._weights * np.array([self.radialFunc(self.getDistFromSquare(point,i)) for i in range(self._M)])
+        vals*=self._max_f_vec
         return sum(vals)
 
     def calculateWeights(self,f) : 
@@ -123,6 +132,12 @@ class rbf_spline:
     
     def getParameters(self):
         return self._parameter_keys[:]
+
+    def getMinMax(self,param):
+        return self._r_map[param][0],self._r_map[param][1]
+
+    def getF(self):
+        return self._f_vec[:]
 
     def getPoints(self,axis):
         # return a grid of points up to 2D
@@ -163,6 +178,10 @@ class splinesum:
         #for i,sp in enumerate(splines): 
         #    spoint = {k:v for k,v in point.items() if k in sp.getParameters()} 
         #    sm += sp.evaluate(spoint)
+        #print("splinesum evaluate point",point)
+        #print([ sp.evaluate({k:v for k,v in point.items() if k in sp.getParameters()}) for sp in self._splines ])
+        #print("evaluating at point",point)
+        #print("chi2vals in sum  - ", [ sp.evaluate({k:v for k,v in point.items() if k in sp.getParameters()}) for sp in self._splines ])
         return sum([ sp.evaluate({k:v for k,v in point.items() if k in sp.getParameters()}) for sp in self._splines ])
 
 """
