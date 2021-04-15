@@ -3,6 +3,7 @@ import json
 import re
 from optparse import OptionParser
 from collections import OrderedDict as od
+
 from importlib import import_module
 import pickle
 
@@ -51,7 +52,6 @@ fit = fitter(pois,functions,inputs,opt.doAsimov,opt.theory_uncerts)
 results = od()
 
 fit.setGlobalMinimum(opt.setParamsToNominal)
-
 for poi in pois.keys():
 
   print(" --> Running fits for: %s"%poi)

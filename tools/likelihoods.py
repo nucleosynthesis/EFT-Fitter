@@ -107,8 +107,14 @@ class rbf_spline:
             return NaN
         # check bounds of points and set to edge if its there 
         for p in point.keys():
-            if   point[p] < self._r_map[p][0]: point[p] = self._r_map[p][0]+1e-3
-            elif point[p] > self._r_map[p][1]: point[p] = self._r_map[p][1]-1e-3
+            if   point[p] < self._r_map[p][0]: 
+              #print("ERROR - out of range (<) for ",p,"=", point[p])
+              #return 1e3 
+              point[p] = self._r_map[p][0]+1e-3
+            elif point[p] > self._r_map[p][1]: 
+              #print("ERROR - out of range (>) for ",p,"=", point[p])
+              #return 1e3 
+              point[p] = self._r_map[p][1]-1e-3
         if self._use_scipy_interp: 
             return self._f(point[self._parameter_keys[0]])
         vals = self._weights * np.array([self.radialFunc(self.getDistFromSquare(point,i)) for i in range(self._M)])

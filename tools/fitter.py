@@ -19,6 +19,7 @@ class fitter:
     self.doAsimov = doAsimov
     self.linearOnly = False
 
+    self.functions = {}
     self.thuncerts = {}
     self.nps = []
     self.npindex = {}
@@ -28,7 +29,7 @@ class fitter:
     self.prepareInputs(inputs)
     if theory_uncerts: self.prepareTHU(theory_uncerts)
     self.preparePOIS()
-    self.preparePTerms()
+    self.preparePTerms(self.FUNCTIONS)
 
     self.global_min_chi2 = 0 
 
@@ -74,6 +75,13 @@ class fitter:
     # Initially freeze all POIS: change state in minimizer function
     self.PToFitList = []
 
+  def preparePTerms(self,functions):
+    self.PTerms = od()
+    for p,func in functions.items():
+      self.functions[p]=func
+      self.PTerms[p]=1.
+      
+  """
   def preparePTerms(self):
     # Extract all pois which enter scaling functions: add to dict
     self.PTerms = od()
@@ -87,6 +95,13 @@ class fitter:
             for poi in ["_".join(term.split("_")[1:])]:
               # If poi not already in self.PTerms then add
               if poi not in self.PTerms.keys(): self.PTerms[poi] = 0.
+  """
+
+  def getPOIS(self):
+   pois = {}
+   for i,poi in enumerate(self.PList):
+      pois[poi]=self.P0[i]
+   return pois
 
   def setPOIS(self,poiDict):
     P = []
@@ -96,6 +111,7 @@ class fitter:
     self.P0 = np.array(P)
     # Re-evaluate the PTerms
     self.evaluatePTerms()
+  
 
   def setNuisances(self,key_vals):
     #print("set nuisances",key_vals)
@@ -129,7 +145,18 @@ class fitter:
     return pstr 
 
   def setLinearOnly(self,_linearOnly=True): self.linearOnly = _linearOnly
+  
+  def evaluatePTerms(self):
+    poi_map = { p:self.P0[self.PList.index(p)] for p in self.PList }
+    #print(" at pois = ",poi_map)
+    for p in self.PTerms.keys():
+      x = self.functions[p](poi_map)
+      self.PTerms[p] = x
+      #print("function = ",p,"=",x)
+  
+
     
+  """
   # Function evaluate all pois in scaling functions
   def evaluatePTerms(self):
     pterms = self.PTerms.keys()
@@ -154,8 +181,16 @@ class fitter:
 
       # Update term value in pterm list
       self.PTerms[pterm] = x
-  
+  """
+
   # Evaluate scaling functions for current set of POIS
+  def evaluateScalingFunctions(self,term):
+  # All we need to do is to look for the functio name in functions
+    #if hasattr(self.PTerms):
+    if term in self.PTerms.keys(): return self.PTerms[term]
+    else: sys.exit("ERROR - call to evaluateScalingFunctions(%s), no known function %s "%(term,term))
+
+  """
   # this should realy be moved to the function definition themselves
   # to allow more flexibility in defining the map of params -> predictions 
   def evaluateScalingFunctions(self,terms):   
@@ -191,7 +226,7 @@ class fitter:
     # Confine mu to be positive: rounding issue with prefactors
     #return max(0.,mu)
     return mu
-
+  """
 
   # Function to calculate chi2 for current set of POIS
   def getChi2(self,verbose=True):
@@ -205,13 +240,15 @@ class fitter:
     self.minimize(freezePOIS=[],verbose=False)
     self.global_min_chi2=self.FitResult.fun
     self.evaluatePTerms()
+    print("Best-fit at global min ...")
+    for i,p in enumerate(self.POIS.keys()): print(" ",p,self.P0[i])
     if setParamsToNominal :
       i=0 
       for  p,vals in self.POIS.items(): 
         vals['nominal'] = self.P0[i] 
         i+=1
-    print("Best-fit at global min ...")
-    for p in self.POIS.keys(): print(" ",p,self.POIS[p]['nominal'])
+      print("Set nominal values of POIs to global best-fit point")
+
 
   # Minimizer function
   def minimize(self,freezePOIS=[],verbose=True):
@@ -231,7 +268,7 @@ class fitter:
 
     # Do minimisation
     #print ("need to fit",PToFit)
-    #self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,method='Nelder-mead')
+    #self.FitResult = minimize(GetChi2,PToFit,args=self,method='Nelder-mead')
     self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,options={'ftol':1e-2,'eps':1e-4})
     #print(self.FitResult)
     # Set POI values for those profiled
@@ -357,7 +394,8 @@ def GetChi2(P,FIT):
   for _input in FIT.INPUTS:
     X0 = _input.X0
     # first thing should return 0 if there's no systematics. 
-    X = np.asarray( [ (1+FIT.evaluateTHUncertainty(_input.XList[i]))*FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)] )
+    #X = np.asarray( [ (1+FIT.evaluateTHUncertainty(_input.XList[i]))*FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)] )
+    X = np.asarray( [ (1+FIT.evaluateTHUncertainty(_input.XList[i]))*FIT.evaluateScalingFunctions(_input.XList[i]) for i in range(_input.nbins)] )
     if _input.type == "spline":
           #print("to fit -> ",FIT.PToFitList)
           #for ip,ipoi in enumerate(FIT.PToFitList): 
@@ -385,7 +423,8 @@ def GetChi2(P,FIT):
       print("\n --> Inputs: %s"%_input.name)
       if _input.type == "spline" : continue
       X0 = _input.X0
-      xvals_list = [ FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)]
+      #xvals_list = [ FIT.evaluateScalingFunctions(_input.ProdScaling[i])*(FIT.evaluateScalingFunctions(_input.DecayScaling[i][0])/FIT.evaluateScalingFunctions(_input.DecayScaling[i][1])) for i in range(_input.nbins)]
+      xvals_list = [ FIT.evaluateScalingFunctions(_input.XList[i]) for i in range(_input.nbins)]
       X = np.asarray(xvals_list)
       for ix in range(_input.nbins):
         print("   * %-50s : X0 = %.6f, X(p) = %.6f"%(_input.XList[ix],X0[ix],X[ix]))
@@ -437,8 +476,8 @@ class INPUT:
       
       # first check if the function is already provided 
       if x in functions.keys(): 
-       self.ProdScaling.append( extractTerms(functions[x]) )
-       self.DecayScaling.append( [extractTerms("1."),extractTerms(functions['tot'])] )
+       #self.ProdScaling.append( extractTerms(functions[x]) )
+       #self.DecayScaling.append( [extractTerms("1."),extractTerms(functions['tot'])] )
        continue
       # Then appeal to prod*decay
 
