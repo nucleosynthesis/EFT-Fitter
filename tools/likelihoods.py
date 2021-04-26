@@ -11,7 +11,7 @@ class rbf_spline:
         self._initialised = False 
         self._use_scipy_interp = use_scipy_interp
     
-    def _initialise(self,input_points,target_col,eps,rescaleAxis=True):
+    def _initialise(self,input_points,target_col,eps,rescaleAxis):
         # This is the basic function 
         # Expects a list of dictionaries (inputs_points) 
         # eg [{"x":1,"y":2,"f":4},{"x":3,"y":1,"f":6} ... ]
@@ -46,6 +46,9 @@ class rbf_spline:
     
     def _initialise_scipy(self,input_points,target_col): 
         self._M = len(input_points)
+        self._v_map = [ {k:v for k,v in a.items() if k!=target_col} for a in input_points ]
+        f_vec = [input_points[i][target_col] for i in range(self._M)]
+        self._f_vec = f_vec
         self._parameter_keys = list(filter(lambda k: k!=target_col, input_points[0].keys()))
         if self._ndim=="auto" : self._ndim = len(self._parameter_keys)
         if self._ndim!=len(self._parameter_keys): 
@@ -56,6 +59,7 @@ class rbf_spline:
         f_vec = [p[1] for p in points]
         p_vec = [p[0] for p in points] 
         self._f = interpolate.interp1d(p_vec,f_vec,"cubic")
+        #self._f = interpolate.Rbf(p_vec,f_vec,function='gaussian',epsilon = eps) <- seems to work less well than the implementation above
         self._r_map =  {k: [min([input_points[i][k] for i in range(self._M)]), \
                             max([input_points[i][k] for i in range(self._M)])] \
                             for k in self._parameter_keys}
