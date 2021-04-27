@@ -282,7 +282,7 @@ class fitter:
     # Do minimisation
     #print ("need to fit",PToFit)
     #self.FitResult = minimize(GetChi2,PToFit,args=self,method='Nelder-mead')
-    self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,options={'ftol':1e-2,'eps':1e-4})
+    self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,options={'ftol':1e-3,'eps':1e-6})
     #print(self.FitResult)
     # Set POI values for those profiled
     for ip, ipoi in enumerate(self.PToFitList): self.setPOIS({ipoi:self.FitResult.x[ip]})
