@@ -46,10 +46,17 @@ for in_p in inputs:
  p  = [pp[0] for pp in points]
  c2 = [pp[1] for pp in points]
  lab = in_p.replace(".txt","")
+ crossings1 = findCrossings(points,1)
+ crossings4 = findCrossings(points,4)
  print("%s, Minimum at %s=%.3f"%(lab,par,findMin(points)))
- print("... crossings 1 at ",",".join(["%4.3f"%f for f in findCrossings(points,1)]))
- print("... crossings 4 at ",",".join(["%4.3f"%f for f in findCrossings(points,4)]))
+ print("... crossings 1 at ",",".join(["%4.3f"%f for f in crossings1]))
+ print("... crossings 4 at ",",".join(["%4.3f"%f for f in crossings4]))
  plt.plot(p,c2,label=lab,marker="o",markersize=2.0)
+
+ for x in crossings1: 
+   plt.plot([x,x],[0,1],color='red',linestyle='--')
+ for x in crossings4: 
+   plt.plot([x,x],[0,4],color='red',linestyle='--')
 
 plt.xlabel(par)
 plt.ylim(0,MAXC2)
