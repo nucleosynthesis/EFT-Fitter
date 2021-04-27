@@ -35,7 +35,8 @@ for i in opt.inputs.split(","):
   _input = od()
   _input['name'] = _cfg.name
   _input['X'] = _cfg.X
-  if "rho" in _input.keys(): _input['rho'] = _cfg.rho
+  print(_input.keys())
+  if hasattr(_cfg,"rho"): _input['rho'] = _cfg.rho
   inputs.append(_input)
 
 if len(opt.theory_uncerts):
@@ -52,7 +53,7 @@ fit = fitter(pois,functions,inputs,opt.doAsimov,opt.theory_uncerts)
 results = od()
 
 fit.setGlobalMinimum(opt.setParamsToNominal)
-for poi in pois.keys():
+for poi in fit.getFreePOIs():
 
   print(" --> Running fits for: %s"%poi)
   results[poi] = od()

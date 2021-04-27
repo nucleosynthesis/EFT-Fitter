@@ -33,6 +33,14 @@ class fitter:
 
     self.global_min_chi2 = 0 
 
+  def getFreePOIs(self):
+    # All POIs can be included, but we can choose only some of them to float ever, important so we don't have to re-write functions 
+    return list(filter(lambda x :  not self.POIS[x]["freeze"], self.POIS.keys()))
+  
+  def getFrozenPOIs(self):
+    # All POIs can be included, but we can choose only some of them to float ever, important so we don't have to re-write functions 
+    return list(filter(lambda x : self.POIS[x]["freeze"], self.POIS.keys()))
+
   def prepareInputs(self,inputMeasurements):
     for im in inputMeasurements:
       self.INPUTS.append( INPUT(im,self.FUNCTIONS,self.doAsimov) )
@@ -71,6 +79,7 @@ class fitter:
       self.PList.append(p)
       self.P0.append(vals['nominal'])
       self.PBounds.append( (vals['range'][0],vals['range'][1]) )
+      if "freeze" not in vals: vals["freeze"]=0
     self.P0 = np.array( self.P0 )
     # Initially freeze all POIS: change state in minimizer function
     self.PToFitList = []
@@ -237,15 +246,18 @@ class fitter:
 
     #for p in self.POIS.keys(): print(p,self.POIS[p]['nominal'])
     #print(self.P0)
-    self.minimize(freezePOIS=[],verbose=False)
+    freezePOIS = self.getFrozenPOIs()
+    self.minimize(freezePOIS=freezePOIS,verbose=False)
     self.global_min_chi2=self.FitResult.fun
     self.evaluatePTerms()
     print("Best-fit at global min ...")
-    for i,p in enumerate(self.POIS.keys()): print(" ",p,self.P0[i])
+    for i,p in enumerate(self.POIS.keys()): 
+     if p in self.getFreePOIs(): print(" ",p,self.P0[i])
     if setParamsToNominal :
       i=0 
       for  p,vals in self.POIS.items(): 
         vals['nominal'] = self.P0[i] 
+        #print("Setting as nominal , ",p,"=",vals['nominal'])
         i+=1
       print("Set nominal values of POIs to global best-fit point")
 
@@ -266,6 +278,7 @@ class fitter:
       PToFit.extend([np for np in self.nps])
       PToFitBounds.extend([[-4,4] for i in self.nps])
 
+    #print("Params to fit",self.PToFitList)
     # Do minimisation
     #print ("need to fit",PToFit)
     #self.FitResult = minimize(GetChi2,PToFit,args=self,method='Nelder-mead')
@@ -281,6 +294,8 @@ class fitter:
     self.PToFitList = []
 
 
+  # a vectorizable function to set poi and minimize 
+
   # Function to perform chi2 scan for single param
   def scan_fixed(self,poi,npoints=1000,reset=True):
     # Reset all pois to nominal values
@@ -288,7 +303,7 @@ class fitter:
     self.resetNuisances()
     
     # step one is to do a global fit to find the minimum 
-    toFreezePOIs = list(self.POIS.keys())
+    toFreezePOIs = list(self.getFreePOIs())
     toFreezePOIs.remove(poi)
     self.minimize(freezePOIS=toFreezePOIs,verbose=False) 
     nll_global = self.FitResult.fun
@@ -296,10 +311,11 @@ class fitter:
     # Loop over range of pois and calc chi2
     pvals = np.linspace( self.POIS[poi]['range'][0], self.POIS[poi]['range'][1], npoints )
     chi2 = []
+    # How can this be vectorized (issue since pois stored in class :/)
     for p in pvals:
       self.setPOIS({poi:p})
       if self.has_uncerts: 
-        self.minimize(freezePOIS=self.POIS.keys(),verbose=False) 
+        self.minimize(freezePOIS=self.getFreePOIs(),verbose=False) 
         chi2.append(self.FitResult.fun-nll_global) 
       else: chi2.append(self.getChi2(verbose=False)-nll_global)
     return pvals, np.array(chi2)
@@ -311,12 +327,14 @@ class fitter:
     self.resetNuisances()
     # Add scanned parameter into list of params to freeze
     if poi not in freezeOtherPOIS: freezeOtherPOIS.append(poi)    
-
+    for p in self.getFrozenPOIs(): 
+      if p not in freezeOtherPOIS: freezeOtherPOIS.append(p)
     # Loop over range of pois and minimize, keeping track of other parameter values
     if reverseScan: pvals = np.linspace( self.POIS[poi]['range'][1], self.POIS[poi]['range'][0], npoints )
     else: pvals = np.linspace( self.POIS[poi]['range'][0], self.POIS[poi]['range'][1], npoints )
     chi2 = []
     allpvals = []
+    #print("Scanning ",poi," freezing ", freezeOtherPOIS)
     for ip,p in enumerate(pvals):
       if resetEachStep: self.resetPOIS()
       self.setPOIS({poi:p})
@@ -476,8 +494,6 @@ class INPUT:
       
       # first check if the function is already provided 
       if x in functions.keys(): 
-       #self.ProdScaling.append( extractTerms(functions[x]) )
-       #self.DecayScaling.append( [extractTerms("1."),extractTerms(functions['tot'])] )
        continue
       # Then appeal to prod*decay
 
@@ -511,6 +527,7 @@ class INPUT:
 
     # Error matrix
     corr = []
+    print(inputMeasurement)
     for ix in inputMeasurement['X']:
       for jx in inputMeasurement['X']:
         if (ix,jx) in inputMeasurement['rho'].keys(): p = inputMeasurement['rho'][(ix,jx)]
