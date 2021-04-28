@@ -1,1 +1,2 @@
-for i in `ls RECO*.root` ; do c=`echo "$i" | cut -d'.' -f1`; echo $c; python ../../../utils/root2text.py ${c}.root ${c}_combine.txt  ;  done
+
+for i in `ls *RECO*.root` ; do c=`echo "$i" | cut -d'.' -f1`; echo $c; python ../../../utils/root2text.py ${c}.root ${c}_combine.txt  ;  done
