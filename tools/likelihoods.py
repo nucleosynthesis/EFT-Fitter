@@ -65,7 +65,7 @@ class rbf_spline:
                             for k in self._parameter_keys}
         self._initialised = True
 
-    def initialise(self,input_points,target_col,eps=10,rescaleAxis=True):
+    def initialise(self,input_points,target_col,eps=10,rescaleAxis=True,parameter_rename=[]):
         if type(input_points)==str: 
             fi = open(input_points,"r")
             keys = []
@@ -73,7 +73,10 @@ class rbf_spline:
             for i,line in enumerate(fi.readlines()): 
                 vals = line.split()
                 if not len(vals): continue
-                if i==0 : keys = vals
+                if i==0 : 
+                  keys = vals
+                  if len(parameter_rename): 
+                   for i in range(len(parameter_rename)): keys[i]=parameter_rename[i] 
                 else: 
                   pt = {keys[j]:float(vals[j])  for j in range(len(keys))}
                   input_points.append(pt)
@@ -96,10 +99,14 @@ class rbf_spline:
         dk2 = [ self.diff2(self._v_map[i][k],point[k],k) for k in self._parameter_keys ]
         return sum(dk2)
 
+    """
+    def radialFunc(self,d2): 
+        return np.sqrt((d2/self._eps)**2 + 1)
+    """
     def radialFunc(self,d2):
         expo = (d2/(self._eps*self._eps))
         ret_val = np.exp(-1.*expo)  
-        if ret_val < 1e-12 : return 0
+        #if ret_val < 1e-12 : return 0
         return ret_val
 
     def evaluate(self,point):
