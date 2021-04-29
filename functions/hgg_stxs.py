@@ -3,8 +3,8 @@ import sys
 import json
 
 # Functions inferred from the purity matrix of the HIG-19-015 anaylsis: saved in json file
-#with open("functions/hgg_stxs/stage1p2_extended_pruned.json","r") as jf: fracs = json.load(jf)
-with open("functions/hgg_stxs/stage1p2_extended.json","r") as jf: fracs = json.load(jf)
+with open("functions/hgg_stxs/stage1p2_extended_pruned.json","r") as jf: fracs = json.load(jf)
+#with open("functions/hgg_stxs/stage1p2_extended.json","r") as jf: fracs = json.load(jf)
 
 # Define function to calc
 def STXS_func(pois,cat="0J_PTH_0_10_Tag0"):
