@@ -8,13 +8,8 @@ with open("functions/hgg_stxs/stage1p2_extended_pruned.json","r") as jf: fracs =
 
 # Define function to calc
 def STXS_func(pois,cat="0J_PTH_0_10_Tag0"):
-  eq = 0
-  for p,f in iter(fracs[cat].items()):
-    eq += pois[p]*f
+  eq = sum([pois[p]*f for p,f in iter(fracs[cat].items())])
   return eq
-
-def RECO_0J_PTH_0_10_Tag0(pois):
-  return STXS_func(pois,cat="0J_PTH_0_10_Tag0")
 
 def RECO_0J_PTH_0_10_Tag0(pois):
   return STXS_func(pois,cat="0J_PTH_0_10_Tag0")
