@@ -1,6 +1,6 @@
 #plot a poi from a scan in a results pickle and show the other profiled parameters too
 
-# python poi_profile.py results.pkl 
+# python poi_profile.py results.pkl parameter 
 
 import sys,os
 import numpy as np
