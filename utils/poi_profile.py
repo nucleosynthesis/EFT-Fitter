@@ -23,7 +23,7 @@ axs[0].plot(p,dchi2,color='black',marker="o")
 axs[0].set_xlabel(which)
 axs[0].set_ylabel("$\Delta \chi^{2}$")
 npoints = len(p)
-npoi = len(list(results.keys()))
+npoi = len(list(results[which][mode]['otherpoi']))
 npredictions = len(results[which][mode]['predictions'])
 
 jet = plt.cm.jet
@@ -32,7 +32,9 @@ colors2  = jet(np.linspace(0, 1, npredictions))
 styles = ["-","--",":"]
 
 for i,poi in enumerate(results[which][mode]['otherpoi'].keys()):
-    if poi == which : continue
+    if poi == which : 
+     i-=1
+     continue
     axs[1].plot(p,results[which][mode]['otherpoi'][poi],label=poi,color=colors[i],linestyle=styles[i%3])
 
 for i,label in enumerate(results[which][mode]["predictions"].keys()):
