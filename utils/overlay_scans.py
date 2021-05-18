@@ -40,15 +40,19 @@ for in_p in inputs:
   if i==0: par  = line.split()[0]
   else:
    #if float(line.split()[1]) > MAXC2-0.001: continue
+   # we assume they should be from 0 so reset why not
    points.append([float(line.split()[0]),float(line.split()[1])])
 
+ #print("Off-setting to 0 and minimum")
+ #min_c2 = min([pp[1] for pp in points])
+ #points = [[pp[0],pp[1]-min_c2] for pp in points]
  points.sort()
  p  = [pp[0] for pp in points]
  c2 = [pp[1] for pp in points]
  lab = in_p.replace(".txt","")
  crossings1 = findCrossings(points,1)
  crossings4 = findCrossings(points,4)
- print("%s, Minimum at %s=%.3f"%(lab,par,findMin(points)))
+ print("%s ->\nMinimum at %s=%.3f"%(lab,par,findMin(points)))
  print("... crossings 1 at ",",".join(["%4.3f"%f for f in crossings1]))
  print("... crossings 4 at ",",".join(["%4.3f"%f for f in crossings4]))
  plt.plot(p,c2,label=lab,marker="o",markersize=2.0)

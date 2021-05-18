@@ -12,6 +12,8 @@ import numpy
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 mod = import_module(sys.argv[1],package=None)
 
+plt.rcParams.update({'font.size': 5})
+
 if hasattr(mod,"X"):
     if "likelihood" in mod.X.keys():
         lh = mod.X['likelihood']['likelihood']
@@ -21,8 +23,8 @@ if hasattr(mod,"X"):
         total = xwid*xwid
         ywid = xwid
         if total-ywid > npartotal : ywid-=1
-
-        fig, axs = plt.subplots(xwid, ywid)
+        if xwid > 2 : fig, axs = plt.subplots(xwid, ywid)
+        else : fig, axs = plt.subplots(2,2)
         jindex=0
         iindex=0
         print("total pars = ",npartotal," xwid = ", xwid)
@@ -43,9 +45,11 @@ if hasattr(mod,"X"):
           axs[iindex,jindex].plot(x,y,label="Interp",color="gray",lw=0.8)
           axs[iindex,jindex].scatter(x2,y2,marker="o",s=1.0,color='red',label="Input")
           axs[iindex,jindex].set_xlabel(par)
+          axs[iindex,jindex].grid()
           iindex+=1
         axs[0,0].legend()
         plt.show()
+        fig.tight_layout()
     else:  
       fig,axs = plt.subplots(1,2)
       objects = mod.X.keys()
@@ -80,6 +84,7 @@ if hasattr(mod,"X"):
       axs[1].set_xticklabels(objects,rotation=90)
       axs[1].set_yticklabels(objects)
       plt.show()
+      fig.tight_layout()
 
 elif hasattr(mod,"TH"):
   #import matplotlib.pyplot as plt; plt.rcdefaults()
@@ -117,6 +122,7 @@ elif hasattr(mod,"TH"):
   axs[1].set_xticklabels(objects,rotation=90)
   axs[1].set_yticklabels(objects)
   plt.show()
+  fig.tight_layout()
 
 else: 
       print("Incorrect data format for",sys.argv[1])

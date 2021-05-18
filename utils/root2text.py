@@ -6,7 +6,8 @@ import sys
 import ROOT
 fi = ROOT.TFile.Open(sys.argv[1])
 oname = sys.argv[2]
-MAXc2 = 20
+MAXc2 = 20.
+MINc2 = -10.
 
 pick_branches = []
 if len(sys.argv)>3:
@@ -19,6 +20,8 @@ veto_brs = ["limit", "limitErr", "mh", "syst", "iToy", "iSeed", "iChannel", "t_c
 def checkc2(tr,e):
   tr.GetEntry(e)
   if (2*tr.deltaNLL) > MAXc2: return False
+  if (2*tr.deltaNLL) < MINc2: return False
+  if tr.quantileExpected < 0 : return False
   return True
 
 def printPoint(tr, keys,e):
@@ -61,6 +64,13 @@ for e in range(entries):
   if pt in points: continue 
   points.append(pt)
   #print(points)
+
+mind2 = min(float(p[-1]) for p in points)
+for i in range(1,len(points)): 
+  #print(i,points[i])
+  #print(float(points[i][-1]))
+  points[i][-1]=str(float(points[i][-1])-mind2)
+  
 for pt in points:
   out.write(printSPoint(pt))
   out.write("\n")

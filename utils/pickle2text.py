@@ -30,10 +30,11 @@ if ".py" in which:
 else : params = [which]
 print(params)
 for par in params: 
-    dchi2 = results[par][mode]['dchi2']
+    dchi2 = results[par][mode]['chi2']
     p     = results[par][mode]['pvals']
 
     if ext : onamev = par+"_"+oname
+    else: onamev = oname
     out = open(onamev,"w")
     out.write(par)
     out.write(" chi2 ")
