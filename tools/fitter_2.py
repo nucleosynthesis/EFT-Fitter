@@ -1,6 +1,8 @@
 # Simple python fitting object
-#from scipy.optimize import minimize
-import iminuit.minimize as minimize
+SCIPY_MINIMIZE=False
+if SCIPY_MINIMIZE : from scipy.optimize import minimize
+else: import iminuit.minimize as minimize
+
 from scipy import linalg
 
 import array
@@ -108,7 +110,11 @@ class fitter:
   
 
   def setNuisances(self,key_vals):
-    self.nps.update(key_vals)
+    #print(key_vals)
+    #print(self.npindex)
+    for k,v in key_vals.items(): self.nps[k]=v # can we not always assume this runs in the right order?
+    #self.nps = [v for k,v in key_vals.items()] #<- assume this is always in the right order?
+    #self.nps.update(key_vals) <-  might be faster if it was in a dict?
 
   def evaluateTHUncertainty(self,expr):
     if not self.has_uncerts: return 0
@@ -116,7 +122,8 @@ class fitter:
 
   def resetNuisances(self):
     if self.has_uncerts:
-     for iK in range(len(self.nps)): self.nps[iK] = 0
+     self.setNuisances({iK:0 for iK in range(len(self.nps))})
+     #for iK in range(len(self.nps)): self.nps[iK] = 0
  
   def resetPOIS(self):
     P = []
@@ -186,7 +193,8 @@ class fitter:
       PToFit.extend([np for np in self.nps])
       PToFitBounds.extend([[-4,4] for i in self.nps])
 
-    self.FitResult = minimize(GetChi2,PToFit,args=[self],bounds=PToFitBounds,options={"stra":0})
+    if SCIPY_MINIMIZE: self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds)
+    else:  self.FitResult = minimize(GetChi2,PToFit,args=[self],bounds=PToFitBounds,options={"stra":0})
     self.setPOIS({ipoi:self.FitResult.x[ip] for ip, ipoi in enumerate(self.PToFitList)})
 
     # Run getChi2 with verbose messages
