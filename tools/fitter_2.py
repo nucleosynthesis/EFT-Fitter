@@ -142,9 +142,11 @@ class fitter:
   
   def evaluatePTerms(self):
     poi_map = { p:self.P0[self.PList.index(p)] for p in self.PList }
-    for p in self.PTerms.keys():
-      x = self.functions[p](poi_map)
-      self.PTerms[p] = x
+    pterms = {p:self.functions[p](poi_map) for p in self.PTerms.keys()}
+    self.PTerms.update(pterms)
+    #for p in self.PTerms.keys():
+    #  x = self.functions[p](poi_map)
+    #  self.PTerms[p] = x
   
   # Evaluate scaling functions for current set of POIS
   def evaluateScalingFunctions(self,term):
@@ -239,6 +241,7 @@ class fitter:
   def scan_profiled(self,poi,npoints=100,freezeOtherPOIS=[],reset=True,resetEachStep=False,reverseScan=False,verbose=False):
     # Reset all pois to nominal values
     if reset: self.resetPOIS()
+    print("Re-Setting to nominal values for fixed scan, ",self.P0)
     self.resetNuisances()
     # Add scanned parameter into list of params to freeze
     if poi not in freezeOtherPOIS: freezeOtherPOIS.append(poi)    
