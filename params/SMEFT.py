@@ -5,7 +5,7 @@ pois = od()
 pois["chbox"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-4,5],
+  "range":[-3,3],
   "title":"C_{HBox}",
   "nominal":0
 }
@@ -13,7 +13,7 @@ pois["chbox"] = {
 pois["chdd"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-20,20],
+  "range":[-10,10],
   "title":"C_{HDD}",
   "nominal":0
 }
@@ -21,7 +21,7 @@ pois["chdd"] = {
 pois["chg"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-1.5e-2,1.5e-2],
+  "range":[-1.5e-2,1e-2],
   "title":"C_{HG}",
   "nominal":0
 }
@@ -29,7 +29,7 @@ pois["chg"] = {
 pois["chw"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-5e-2,3e-2],
+  "range":[-3e-2,3e-2],
   "title":"C_{HW}",
   "nominal":0
 }
@@ -37,7 +37,7 @@ pois["chw"] = {
 pois["chb"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-5e-2,1.5e-1],
+  "range":[-2e-2,1e-1],
   "title":"C_{HB}",
   "nominal":0
 }
@@ -53,7 +53,7 @@ pois["chwb"] = {
 pois["cehabs"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-100,100],
+  "range":[-10,10],
   "title":"|C_{eH}|",
   "nominal":0
 }
@@ -61,7 +61,7 @@ pois["cehabs"] = {
 pois["cuhabs"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-20,20],
+  "range":[-5,5],
   "title":"|C_{uH}|",
   "nominal":0
 }
@@ -69,7 +69,7 @@ pois["cuhabs"] = {
 pois["cdhabs"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-5,5],
+  "range":[-4,4],
   "title":"|C_{dH}|",
   "nominal":0
 }
@@ -85,7 +85,7 @@ pois["cugabs"] = {
 pois["chl1"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-50,50],
+  "range":[-3,3],
   "title":"C^{(1)}_{Hl}",
   "nominal":0
 }
@@ -93,23 +93,23 @@ pois["chl1"] = {
 pois["chl3"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-2.5,3.5],
+  "range":[-1.5,1.5],
   "title":"C^{(3)}_{Hl}",
   "nominal":0
 }
 
-#pois["che"] = {
-#  "factor":1,
-#  "multiplier":1,
-#  "range":[-6,6],
-#  "title":"C_{He}",
-#  "nominal":0
-#}
+pois["che"] = {
+  "factor":1,
+  "multiplier":1,
+  "range":[-6,6],
+  "title":"C_{He}",
+  "nominal":0
+}
 
 pois["chq1"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-1,1],
+  "range":[-0.2,0.2],
   "title":"C^{(1)}_{Hq}",
   "nominal":0
 }
@@ -117,7 +117,7 @@ pois["chq1"] = {
 pois["chq3"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-0.5,0.5],
+  "range":[-0.4,0.2],
   "title":"C^{(3)}_{Hq}",
   "nominal":0
 }
@@ -125,7 +125,7 @@ pois["chq3"] = {
 pois["chu"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-3,3],
+  "range":[-0.3,0.3],
   "title":"C_{Hu}",
   "nominal":0
 }
@@ -133,7 +133,7 @@ pois["chu"] = {
 pois["chd"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-3,3],
+  "range":[-0.3,0.3],
   "title":"C_{Hd}",
   "nominal":0
 }
@@ -141,7 +141,7 @@ pois["chd"] = {
 pois["cll1"] = {
   "factor":1,
   "multiplier":1,
-  "range":[-20,20],
+  "range":[-1,1],
   "title":"C^{(1)}_{ll}",
   "nominal":0
 }
