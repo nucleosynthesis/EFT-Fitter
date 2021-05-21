@@ -1,5 +1,5 @@
 # Simple python fitting object
-SCIPY_MINIMIZE=False
+SCIPY_MINIMIZE=True
 if SCIPY_MINIMIZE : from scipy.optimize import minimize
 else: import iminuit.minimize as minimize
 

@@ -55,8 +55,8 @@ fit = fitter(pois,functions,inputs,opt.doAsimov,opt.theory_uncerts)
 # Perform scans
 results = od()
 
+sys.exit()
 fit.setGlobalMinimum(opt.setParamsToNominal)
-#sys.exit()
 print(opt.scanpois)
 for poi in fit.getFreePOIs():
 
