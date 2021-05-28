@@ -30,6 +30,7 @@ if len(opt.scanpois) : opt.scanpois = opt.scanpois.split(",")
 else: opt.scanpois = []
 # Load functions
 functions = import_module(opt.functions).functions
+grad_functions = import_module(opt.functions).grad_functions
 
 # Load input measurements
 inputs = []
@@ -50,7 +51,7 @@ if len(opt.theory_uncerts):
   opt.theory_uncerts = _th_input
 from tools.fitter_2 import *
 
-fit = fitter(pois,functions,inputs,opt.doAsimov,opt.theory_uncerts)
+fit = fitter(pois,functions,grad_functions,inputs,opt.doAsimov,opt.theory_uncerts)
 
 # Perform scans
 results = od()
@@ -67,6 +68,7 @@ for poi in fit.getFreePOIs():
   # Quadratic
   fit.setLinearOnly(False)
 
+  """
   # Fixed scan
   print("    * Quadratic: fixed")
   pvals_f, chi2_f, other_poi_f, pred_f = fit.scan_fixed(poi,npoints=opt.npoints)
@@ -82,6 +84,7 @@ for poi in fit.getFreePOIs():
   results[poi]["fixed"]['otherpoi']   = {}
   for other_poi_l in other_poi_f[0].keys() : 
     results[poi]["fixed"]['otherpoi'][other_poi_l] = [ other_poi_f[i][other_poi_l] for i in range(len(other_poi_f)) ]
+  """
 
   # Profiled scan (full)
   print("    * Quadratic: profiled")

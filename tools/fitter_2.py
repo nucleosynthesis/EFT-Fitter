@@ -14,18 +14,21 @@ from collections import OrderedDict as od
 
 from tools.input import INPUT
 from tools.helpers import *
-from tools.Chi2 import GetChi2
+from tools.Chi2 import GetChi2, GetChi2Grad
 
 class fitter:
 
-  def __init__(self,parametersOfInterest,functions,inputs,doAsimov=False,theory_uncerts=None):
+  def __init__(self,parametersOfInterest,functions,grad_functions, inputs,doAsimov=False,theory_uncerts=None):
     self.POIS = parametersOfInterest
+    # can we not make the ones below the same?
     self.FUNCTIONS = functions
+    self.GRADIENTS = grad_functions
     self.INPUTS = []
     self.doAsimov = doAsimov
     self.linearOnly = False
 
     self.functions = {}
+    self.grad_functions = {}
     self.thuncerts = {}
     self.nps = []
     self.npindex = {}
@@ -36,6 +39,7 @@ class fitter:
     if theory_uncerts: self.prepareTHU(theory_uncerts)
     self.preparePOIS()
     self.preparePTerms(self.FUNCTIONS)
+    self.prepareDPTerms(self.FUNCTIONS)
 
     self.global_min_chi2 = 0 
 
@@ -96,6 +100,12 @@ class fitter:
       self.functions[p]=func
       self.PTerms[p]=1.
 
+  def prepareDPTerms(self,grad_functions):
+    self.DPTerms = od()
+    for p,func in grad_functions.items():
+      self.grad_functions[p]=func
+      self.DPTerms[p]={param:1. for param in self.getFreePOIs()}
+
   def getPOIS(self):
    pois = {}
    for i,poi in enumerate(self.PList):
@@ -106,8 +116,7 @@ class fitter:
     P = od({self.PList[ip]:self.P0[ip] for ip in range(len(self.PList)) })
     P.update(poiDict)
     self.P0 = np.array([v for k,v in P.items()])
-    self.evaluatePTerms()
-  
+    self.evaluatePTerms() 
 
   def setNuisances(self,key_vals):
     #print(key_vals)
@@ -119,6 +128,10 @@ class fitter:
   def evaluateTHUncertainty(self,expr):
     if not self.has_uncerts: return 0
     return self.nps[self.npindex[expr]]*self.thuncerts[expr]
+
+  def evaluateDTHUncertainty(self,expr):
+    if not self.has_uncerts: return 0
+    return self.thuncerts[expr]
 
   def resetNuisances(self):
     if self.has_uncerts:
@@ -144,15 +157,24 @@ class fitter:
     poi_map = { p:self.P0[self.PList.index(p)] for p in self.PList }
     pterms = {p:self.functions[p](poi_map) for p in self.PTerms.keys()}
     self.PTerms.update(pterms)
-    #for p in self.PTerms.keys():
-    #  x = self.functions[p](poi_map)
-    #  self.PTerms[p] = x
+  
+  def evaluateDPTerms(self):
+    poi_map = { p:self.P0[self.PList.index(p)] for p in self.PList }
+    for p in self.DPTerms.keys(): 
+      pterms = {param:self.grad_functions[p][param](poi_map,param) for param in self.PList}
+      self.DPTerms[p].update(pterms)
   
   # Evaluate scaling functions for current set of POIS
   def evaluateScalingFunctions(self,term):
   # All we need to do is to look for the functio name in functions
     if term in self.PTerms.keys(): return self.PTerms[term]
     else: sys.exit("ERROR - call to evaluateScalingFunctions(%s), no known function %s "%(term,term))
+
+  # Evaluate gradient of scaling functions for current set of POIS
+  def evaluateDScalingFunctions(self,term,param):
+  # All we need to do is to look for the functio name in functions
+    if term in self.DPTerms.keys(): return self.DPTerms[term][param]
+    else: sys.exit("ERROR - call to evaluateDScalingFunctions(%s), no known gradient function %s "%(term,term))
 
   # Function to calculate chi2 for current set of POIS
   def getChi2(self,verbose=True):
@@ -195,8 +217,8 @@ class fitter:
       PToFit.extend([np for np in self.nps])
       PToFitBounds.extend([[-4,4] for i in self.nps])
 
-    if SCIPY_MINIMIZE: self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds)
-    else:  self.FitResult = minimize(GetChi2,PToFit,args=[self],bounds=PToFitBounds,options={"stra":0})
+    if SCIPY_MINIMIZE: self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,jac=GetChi2Grad)
+    else:  self.FitResult = minimize(GetChi2,PToFit,args=[self],bounds=PToFitBounds,jac=GetChi2Grad,options={"stra":0})
     self.setPOIS({ipoi:self.FitResult.x[ip] for ip, ipoi in enumerate(self.PToFitList)})
 
     # Run getChi2 with verbose messages
@@ -238,10 +260,11 @@ class fitter:
     return pvals, np.array(chi2), allparams, allpredictions
 
   # Function to perform chi2 scan when profiling other parameters
+  # we can thread the calls to minimize and pull them together (sort after with itertools?)
   def scan_profiled(self,poi,npoints=100,freezeOtherPOIS=[],reset=True,resetEachStep=False,reverseScan=False,verbose=False):
     # Reset all pois to nominal values
     if reset: self.resetPOIS()
-    print("Re-Setting to nominal values for fixed scan, ",self.P0)
+    print("Re-Setting to nominal values for profiled scan, ",self.P0)
     self.resetNuisances()
     # Add scanned parameter into list of params to freeze
     if poi not in freezeOtherPOIS: freezeOtherPOIS.append(poi)    
