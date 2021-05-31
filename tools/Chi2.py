@@ -118,7 +118,6 @@ def GetChi2Grad(P,args=[]):
           gthuncert    = np.asarray([FIT.evaluateDTHUncertainty(_input.XList[j])   for j in range(_input.nbins)]) 
           grad_func_vec.extend(scalingTerms*gthuncert)
     
-    
         grad_chi2_t2 += np.array([ grad_vec.dot(grad_func_vec[i]) for i in range(nParam) ])
 
   return grad_chi2_t2

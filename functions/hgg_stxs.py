@@ -14,8 +14,9 @@ def STXS_func(pois,cat):
 
 # Define function to calc
 def STXS_grad(pois,cat,param):
-  eq = fracs[cat][param]
-  return eq
+  if param in fracs[cat].keys(): return fracs[cat][param]
+  else : return 0
+  #return eq
 
 def RECO_0J_PTH_0_10_Tag0(pois):
   return STXS_func(pois,cat="0J_PTH_0_10_Tag0")

@@ -1,9 +1,12 @@
 # Simple python fitting object
 SCIPY_MINIMIZE=False
+USE_GRADIENT=True
+
 if SCIPY_MINIMIZE : from scipy.optimize import minimize
 else: import iminuit.minimize as minimize
 
 from scipy import linalg
+import time 
 
 import array
 import numpy as np
@@ -39,7 +42,7 @@ class fitter:
     if theory_uncerts: self.prepareTHU(theory_uncerts)
     self.preparePOIS()
     self.preparePTerms(self.FUNCTIONS)
-    self.prepareDPTerms(self.FUNCTIONS)
+    self.prepareDPTerms(self.GRADIENTS)
 
     self.global_min_chi2 = 0 
 
@@ -117,6 +120,7 @@ class fitter:
     P.update(poiDict)
     self.P0 = np.array([v for k,v in P.items()])
     self.evaluatePTerms() 
+    if USE_GRADIENT: self.evaluateDPTerms()
 
   def setNuisances(self,key_vals):
     #print(key_vals)
@@ -161,20 +165,27 @@ class fitter:
   def evaluateDPTerms(self):
     poi_map = { p:self.P0[self.PList.index(p)] for p in self.PList }
     for p in self.DPTerms.keys(): 
-      pterms = {param:self.grad_functions[p][param](poi_map,param) for param in self.PList}
+      pterms = {param:self.grad_functions[p](poi_map,param) for param in self.PList}
       self.DPTerms[p].update(pterms)
   
   # Evaluate scaling functions for current set of POIS
   def evaluateScalingFunctions(self,term):
   # All we need to do is to look for the functio name in functions
-    if term in self.PTerms.keys(): return self.PTerms[term]
-    else: sys.exit("ERROR - call to evaluateScalingFunctions(%s), no known function %s "%(term,term))
+    #if term in self.PTerms.keys(): return self.PTerms[term]
+    try : return self.PTerms[term]
+    except KeyError : 
+        sys.exit("ERROR - call to evaluateScalingFunctions(%s), no known function %s "%(term,term))
+    #else: 
 
   # Evaluate gradient of scaling functions for current set of POIS
   def evaluateDScalingFunctions(self,term,param):
   # All we need to do is to look for the functio name in functions
-    if term in self.DPTerms.keys(): return self.DPTerms[term][param]
-    else: sys.exit("ERROR - call to evaluateDScalingFunctions(%s), no known gradient function %s "%(term,term))
+    #if term in self.DPTerms.keys(): 
+    try : 
+      return self.DPTerms[term][param]
+    except KeyError : 
+      sys.exit("ERROR - call to evaluateDScalingFunctions(%s), no known gradient function %s "%(term,term))
+    #else: sys.exit("ERROR - call to evaluateDScalingFunctions(%s), no known gradient function %s "%(term,term))
 
   # Function to calculate chi2 for current set of POIS
   def getChi2(self,verbose=True):
@@ -216,9 +227,17 @@ class fitter:
     if self.has_uncerts: 
       PToFit.extend([np for np in self.nps])
       PToFitBounds.extend([[-4,4] for i in self.nps])
+    
+    prefit_time  = time.perf_counter()     
+    if SCIPY_MINIMIZE: 
+      if USE_GRADIENT: self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,jac=GetChi2Grad)
+      else: self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds)
+    else:              
+      if USE_GRADIENT: self.FitResult = minimize(GetChi2,PToFit,args=[self],bounds=PToFitBounds,jac=GetChi2Grad,options={"stra":0})
+      else: self.FitResult = minimize(GetChi2,PToFit,args=[self],bounds=PToFitBounds,options={"stra":0})
+    postfit_time = time.perf_counter()
+    print("..minimiser finished in %0.4f seconds"%(postfit_time-prefit_time))
 
-    if SCIPY_MINIMIZE: self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,jac=GetChi2Grad)
-    else:  self.FitResult = minimize(GetChi2,PToFit,args=[self],bounds=PToFitBounds,jac=GetChi2Grad,options={"stra":0})
     self.setPOIS({ipoi:self.FitResult.x[ip] for ip, ipoi in enumerate(self.PToFitList)})
 
     # Run getChi2 with verbose messages
