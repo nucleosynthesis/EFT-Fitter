@@ -83,6 +83,7 @@ class fitter:
     corr = array.array('d',corr)
     corr_sq = [ corr[i:i+nbins] for i in range(0,len(corr),nbins)]
     self.tHVinv = linalg.inv(corr_sq)
+    self.tHVinvT = self.tHVinv.T
     
   def preparePOIS(self):
     self.PList = []

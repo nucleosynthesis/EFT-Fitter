@@ -1,4 +1,5 @@
 #from functools import lru_cache
+import sys
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 import numpy as np
 verbose=False
@@ -43,7 +44,8 @@ def GetChi2(P,args=[]):#FIT):
           xarr = X-X0
           xarrT = xarr.T
           chi2 += xarrT.dot( _input.Vinv.dot( xarr ) )
-
+  
+  """
   if verbose:
     print(" ----------------------------------------------------------------------------")
     print(" --> Scaling functions: Linear" if FIT.linearOnly else " --> Scaling functions: Quadratic")
@@ -70,7 +72,8 @@ def GetChi2(P,args=[]):#FIT):
         print(vstr)
 
     print("\n --> Result: chi2 = %.8f"%chi2)
-      
+    sys.exit()
+  """
   return chi2
 
 def GetChi2Grad(P,args=[]):
@@ -106,21 +109,23 @@ def GetChi2Grad(P,args=[]):
     X = np.asarray( [ (1+FIT.evaluateTHUncertainty(_input.XList[i]))*FIT.evaluateScalingFunctions(_input.XList[i]) \
       for i in range(_input.nbins)] )
     X0 = _input.X0
-    scalingTerms = np.asarray([FIT.evaluateScalingFunctions(_input.XList[j]) for j in range(_input.nbins)])
-    thuncert     = np.asarray([1+FIT.evaluateTHUncertainty(_input.XList[j])    for j in range(_input.nbins)])
+    scalingTerms = np.array([FIT.evaluateScalingFunctions(_input.XList[j]) for j in range(_input.nbins)])
+    thuncert     = np.array([1+FIT.evaluateTHUncertainty(_input.XList[j])    for j in range(_input.nbins)])
     
     if _input.type == "spline":
         grad_map = X0.evaluate_grad({"%s"%_input.XList[j]:X[j] for j in range(len(X))})
         grad_vec = np.array([grad_map[_input.XList[j]] for j in range(_input.nbins)])   # <- dX/dN_j 
-        grad_func_vec = [ thuncert*np.array([  FIT.evaluateDScalingFunctions(xj, ipoi ) for xj in _input.XList]) for ipoi in FIT.PToFitList ]  # <- dN_j/dp_i
+    else : 
+        xarr = X-X0
+        # why am I bothering with the transpose here ?!
+        grad_vec = np.asarray( [np.array(_input.Vinv[j]).dot(xarr) + np.array(_input.VinvT[j]).dot(xarr) for j in range(len(X0)) ] )
+    
+    grad_func_vec = [ thuncert*np.array([  FIT.evaluateDScalingFunctions(xj, ipoi ) for xj in _input.XList]) for ipoi in FIT.PToFitList ]  # <- dN_j/dp_i
 
-        if FIT.has_uncerts: # we could just not check this and set the gthuncert to 0's?
+    if FIT.has_uncerts: # we could just not check this and set the gthuncert to 0's?
           gthuncert    = np.asarray([FIT.evaluateDTHUncertainty(_input.XList[j])   for j in range(_input.nbins)]) 
           grad_func_vec.extend(scalingTerms*gthuncert)
     
-        grad_chi2_t2 += np.array([ grad_vec.dot(grad_func_vec[i]) for i in range(nParam) ])
-
-  return grad_chi2_t2
+    grad_chi2_t2 += np.array([ grad_vec.dot(grad_func_vec[i]) for i in range(nParam) ])
     
-
-  # next we have terms that sum over 
+  return grad_chi2_t2

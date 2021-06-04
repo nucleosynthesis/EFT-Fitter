@@ -1,3 +1,6 @@
+import numpy as np
+import array
+from scipy import linalg
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Extract all required info for input measurement
 class INPUT:
@@ -70,13 +73,17 @@ class INPUT:
     print(inputMeasurement)
     for ix in inputMeasurement['X']:
       for jx in inputMeasurement['X']:
-        if (ix,jx) in inputMeasurement['rho'].keys(): p = inputMeasurement['rho'][(ix,jx)]
-        elif (jx,ix) in inputMeasurement['rho'].keys(): p = inputMeasurement['rho'][(jx,ix)]
-        else:
-          if ix == jx: p = 1.
-          else: 
-            p = 0.
-            print(" --> [WARNING] No correlation info given for (%s,%s). Assuming = 0"%(ix,jx))
+        if "rho" in inputMeasurement.keys():
+          if (ix,jx) in inputMeasurement['rho'].keys(): p = inputMeasurement['rho'][(ix,jx)]
+          elif (jx,ix) in inputMeasurement['rho'].keys(): p = inputMeasurement['rho'][(jx,ix)]
+          else:
+            if ix == jx: p = 1.
+            else: 
+              p = 0.
+              print(" --> [WARNING] No correlation info given for (%s,%s). Assuming = 0"%(ix,jx))
+        else: 
+          if ix == jx : p=1.
+          else: p=0.
         corr.append(p)
     corr = array.array('d',corr)
 
@@ -90,7 +97,9 @@ class INPUT:
     # Do some squarification and inverting
     nbins = len( inputMeasurement['X'].keys() )
     corr_sq = [ corr[i:i+nbins] for i in range(0,len(corr),nbins)]
+    print(corr_sq)
     cov_sq = [ [ corr_sq[i][j]*err[i]*err[j] for i in range(nbins)] for j in range(nbins) ]
     self.err_mat = np.array(cov_sq)
     self.Vinv = linalg.inv(self.err_mat)
+    self.VinvT = self.Vinv.T
     self.nbins = nbins
