@@ -126,7 +126,7 @@ class rbf_spline:
         #    print ("Error - must have same variable labels, you provided - ",point.keys(),", I only know about - ",self._parameter_keys)
         #    return NaN
         # check bounds of points and set to edge if its there 
-        
+        """
         for p in point.keys():
             if   point[p] < self._r_map[p][0]: 
               #print("ERROR - out of range (<) for ",p,"=", point[p], "bounds=",self._r_map[p])
@@ -136,18 +136,19 @@ class rbf_spline:
               #print("ERROR - out of range (>) for ",p,"=", point[p], "bounds=",self._r_map[p])
               #return 1e3 
               point[p] = self._r_map[p][1]-1e-3
-
+        """
         if self._use_scipy_interp: 
             return self._f(point[self._parameter_keys[0]])
-        vals = self._weights * np.array([self.radialFunc(self.getDistFromSquare(point,i)) for i in range(self._M)])
+        vals_sum = self._weights.dot(np.array([self.radialFunc(self.getDistFromSquare(point,i)) for i in range(self._M)]))
         #vals*=self._max_f_vec
-        return self._max_f_vec*sum(vals)
+        return self._max_f_vec*vals_sum
 
     def evaluate_grad(self,point,param):
         if not self._initialised:
             print("Error - must first initialise spline with set of points before calling evaluate_grad()") 
             return NaN
         if param not in point.keys(): return 0 # this is so I can be lazy later
+        """
         for p in point.keys():
             if   point[p] < self._r_map[p][0]: 
               #print("ERROR - out of range (<) for ",p,"=", point[p], "bounds=",self._r_map[p])
@@ -157,14 +158,14 @@ class rbf_spline:
               #print("ERROR - out of range (>) for ",p,"=", point[p], "bounds=",self._r_map[p])
               #return 1e3 
               point[p] = self._r_map[p][1]-1e-3
-
+        """
         if self._use_scipy_interp: 
             sys.exit("no gradient for scipy interpolate (yet?)")
 
         #vals = self._weights * np.array([self.radialFunc(self.getDistFromSquare(point,i)) for i in range(self._M)])
         #vals*=self._max_f_vec
-        vals = self._weights*np.array([ self.radialFunc(self.getDistFromSquare(point,i))*self.getGradDistFrom(point,i,param) for i in range(self._M)] ) 
-        return -1./(self._eps*self._eps)*self._max_f_vec*sum(vals)
+        vals_sum = self._weights.dot(np.array([ self.radialFunc(self.getDistFromSquare(point,i))*self.getGradDistFrom(point,i,param) for i in range(self._M)] ) )
+        return -1./(self._eps*self._eps)*self._max_f_vec*vals_sum
 
     def calculateWeights(self,f) : 
         A = np.array([np.zeros(self._M) for i in range(self._M)])
@@ -225,7 +226,7 @@ class splinesum:
         return self._splines[i]
     #@lru_cache(maxsize=20)
     def evaluate(self,point):
-        return sum([ sp.evaluate({k:v for k,v in point.items() if k in sp.getParameters()}) for sp in self._splines ])
+        return sum(np.asarray([ sp.evaluate({k:v for k,v in point.items() if k in sp.getParameters()}) for sp in self._splines ]))
     
     def evaluate_grad(self,point):
         ret_map={p:sum([sp.evaluate_grad({k:v for k,v in point.items() if k in sp.getParameters()},p) \
