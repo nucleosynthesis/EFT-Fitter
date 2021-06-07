@@ -84,14 +84,13 @@ def GetChi2Grad(P,args=[]):
     #for ip,ipoi in enumerate(FIT.PToFitList): 
     #  FIT.setPOIS({ipoi:P[ip]})
 
-  nParam = len(P)
   nPOI = len(FIT.PToFitList)
   init_i = len(FIT.PToFitList)
   nuisance_parameter_vals = [P[i] for i  in range(init_i,len(P))]
   # Set nuisance parameters -> need to have the FIT object keep track of which one is which, but once its 
   # decided it will be fixed and can be ignored 
   #print("nuisance param vals = ",nuisance_parameter_vals)
-
+  nParam = nPOI+len(nuisance_parameter_vals)
   grad_chi2_t2 = [0 for p in range(nPOI)]
   
   if FIT.has_uncerts: 

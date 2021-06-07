@@ -188,9 +188,12 @@ class fitter:
       sys.exit("ERROR - call to evaluateDScalingFunctions(%s), no known gradient function %s "%(term,term))
     #else: sys.exit("ERROR - call to evaluateDScalingFunctions(%s), no known gradient function %s "%(term,term))
 
-  # Function to calculate chi2 for current set of POIS
+  # Functions to calculate chi2 and Gchi2 for current set of POIS
   def getChi2(self,verbose=True):
     return GetChi2([],self)
+
+  def getChi2Grad(self,verbose=True):
+    return GetChi2Grad([],self)
 
   # Function to set the parameters to the global minimum
   def setGlobalMinimum(self,setParamsToNominal=False): 
