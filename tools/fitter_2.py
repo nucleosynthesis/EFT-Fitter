@@ -1,5 +1,5 @@
 # Simple python fitting object
-SCIPY_MINIMIZE=False
+SCIPY_MINIMIZE=True
 USE_GRADIENT=True
 
 if SCIPY_MINIMIZE : from scipy.optimize import minimize
@@ -45,6 +45,10 @@ class fitter:
     self.prepareDPTerms(self.GRADIENTS)
 
     self.global_min_chi2 = 0 
+
+    print("Minimization configured using ...")
+    print("  minimizer: %s"%("scipy.minimize" if SCIPY_MINIMIZE else "iminuit"))
+    print("  analytic gradient: %s"%("on" if USE_GRADIENT else "off"))
 
   def getFreePOIs(self):
     # All POIs can be included, but we can choose only some of them to float ever, important so we don't have to re-write functions 
@@ -96,7 +100,9 @@ class fitter:
       if "freeze" not in vals: vals["freeze"]=0
     self.P0 = np.array( self.P0 )
     # Initially freeze all POIS: change state in minimizer function
-    self.PToFitList = []
+    # Initially just assume the POIs to be fit are all the non frozen ones
+    self.PToFitList = self.getFreePOIs()
+    #self.PToFitList = []
 
   def preparePTerms(self,functions):
     self.PTerms = od()
@@ -195,6 +201,9 @@ class fitter:
   def getChi2Grad(self,verbose=True):
     return GetChi2Grad([],self)
 
+  def getGlobalMinimum(self):
+    return self.global_min_chi2
+  
   # Function to set the parameters to the global minimum
   def setGlobalMinimum(self,setParamsToNominal=False): 
 
@@ -247,8 +256,8 @@ class fitter:
     # Run getChi2 with verbose messages
     if verbose: self.getChi2(verbose=True) 
 
-    # Reset all POIs to fixed state
-    self.PToFitList = []
+    # Reset all POIs to fixed state (why?)
+    self.PToFitList = self.getFreePOIs()
 
   # Function to perform chi2 scan for single param
   def scan_fixed(self,poi,npoints=1000,reset=True):
