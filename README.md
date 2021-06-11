@@ -18,6 +18,16 @@ This will produce the following plot
 
 ![Example](example.png)
 
+Or you can plot either POI (along with the function values, and profiled parameter values) directly from the results via 
+
+```
+python utils/poi_profile.py resultstth_hgg_fits_kVkF_observed.pkl kappa_F
+```
+
+This will produce the following plot 
+
+![Exampleprof](profile_example.png)
+
 ## Options 
 ```
 python runFit.py --help                                                                                            [15:44:30]
