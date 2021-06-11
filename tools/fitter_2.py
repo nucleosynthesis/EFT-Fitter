@@ -1,4 +1,4 @@
-# Simple python fitting object
+# Simple python fitting object, set fitter and gradient
 SCIPY_MINIMIZE=True
 USE_GRADIENT=True
 
@@ -112,9 +112,10 @@ class fitter:
 
   def prepareDPTerms(self,grad_functions):
     self.DPTerms = od()
-    for p,func in grad_functions.items():
-      self.grad_functions[p]=func
-      self.DPTerms[p]={param:1. for param in self.getFreePOIs()}
+    if USE_GRADIENT:
+      for p,func in grad_functions.items():
+        self.grad_functions[p]=func
+        self.DPTerms[p]={param:1. for param in self.getFreePOIs()}
 
   def getPOIS(self):
    pois = {}
