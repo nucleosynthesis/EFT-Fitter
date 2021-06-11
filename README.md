@@ -6,7 +6,7 @@ The main tool is the `runFit.py` script. This will run a fit of the pois, follow
 
 An example run is 
 
-```python runFit.py --inputs inputs.ttH_hgg_19_015.ttH_HIG_19_015 --pois params.tth_hgg_kVkF --functions functions.tth_hgg_kVkF  --output tth_hgg_fits_kVkF --setParamsToNominal```
+```python runFit.py --inputs inputs.HIG_19_015.ttH_HIG_19_015 --pois params.tth_hgg_kVkF --functions functions.tth_hgg_kVkF --output tth_hgg_fits_kVkF  --npoints 50```
 
 The output is a `.pkl` file with the results of the $\Delta \chi^{2}$ vs the poi values from each scan. In this case its called `resultstth_hgg_fits_kVkF_observed.pkl`. You can take a look at the results, for example to pull out the profiled scan of kappa_F, with 
 
