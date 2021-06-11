@@ -36,10 +36,13 @@ Usage: runFit.py [options]
 Options:
   -h, --help            show this help message and exit
   --pois=POIS           Name of json file storing pois
+  --scanpois=SCANPOIS   comma separated list of pois to scan (if empty,
+                        default is all pois)
   --output=OUTPUTSTR    Identifier string for output results
   --functions=FUNCTIONS
                         Name of json file storing functions
   --inputs=INPUTS       Comma separated list of input files
+  --npoints=NPOINTS     number of points in the scan
   --theory_uncert=THEORY_UNCERTS
                         config for theory uncertainties
   --doAsimov            Do asimov fit (i.e. set all best-fit to nominal)
@@ -53,3 +56,15 @@ Options:
 ```                    
 
 **To-do** : add proper description of `runFit.py` 
+
+## Settings 
+
+Inside `tools/fitter_2.py` there are 2 settings, that you may need to edit 
+
+```
+SCIPY_MINIMIZE=True
+USE_GRADIENT=True
+```
+The first sets the minimizer to `scipy.minimize`. Setting this to `False` will use the `iminuit` interface to Minuit instead. 
+
+The second option tells the fitter to use the analytic gradient. For this, you just need to make sure your `functions` include the gradients too. See [this example](https://github.com/nucleosynthesis/EFT-Fitter/blob/addgradients/functions/tth_hgg_kVkF.py)
