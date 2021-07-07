@@ -21,7 +21,8 @@ class rbf_spline:
         # Each dictionary should have ndim+1 keys
         # (probably a better way to structure as a dataframe)
 
-        self._eps = eps  
+        self._eps  = eps  
+        self._eps2 = eps*eps
         self._rescaleAxis = rescaleAxis
 
         self._M = len(input_points)
@@ -32,12 +33,15 @@ class rbf_spline:
         if self._ndim!=len(self._parameter_keys): 
             sys.exit("Error - initialise given points with more dimensions (%g) than ndim (%g)"%(len(self._parameter_keys),self._ndim))
 
-        self._axis_pts = self._M**(1./self._ndim)
+        self._axis_pts  = self._M**(1./self._ndim)
+        self._axis_pts2 = self._axis_pts*self._axis_pts
 
         self._v_map = [ {k:v for k,v in a.items() if k!=target_col} for a in input_points ]
         self._r_map =  {k: [min([input_points[i][k] for i in range(self._M)]), \
                             max([input_points[i][k] for i in range(self._M)])] \
                             for k in self._parameter_keys}
+        self._diff_map = {k: self._r_map[k][1]-self._r_map[k][0]  for k in self._parameter_keys}
+
         f_vec = [input_points[i][target_col] for i in range(self._M)]
         self._f_vec = f_vec
         
@@ -88,11 +92,13 @@ class rbf_spline:
     def diff(self,a,b,k): # note this is not quite sqrt(diff) but really d(diff2)/dX
         v=a-b
         c = 1. 
-        if self._rescaleAxis: c = (self._axis_pts)*(self._axis_pts)/((self._r_map[k][1]-self._r_map[k][0])*(self._r_map[k][1]-self._r_map[k][0]))
+        if self._rescaleAxis: 
+          d2 = self._diff_map[k]*self._diff_map[k]
+          c  = self._axis_pts2/d2
         return v*c
 
     def diff2(self,a,b,k):
-        if self._rescaleAxis: v=(self._axis_pts)*(a-b)/(self._r_map[k][1]-self._r_map[k][0])
+        if self._rescaleAxis: v=(self._axis_pts)*(a-b)/(self._diff_map[k])
         else: v=a-b
         return v*v  
 
@@ -113,7 +119,8 @@ class rbf_spline:
     """
     def radialFunc(self,d2):
         expo = (d2/(self._eps*self._eps))
-        ret_val = np.exp(-1.*expo)  
+        #ret_val = np.exp(-1.*expo)  
+        ret_val = np.e**(-1*expo)
         #if ret_val < 1e-12 : return 0
         return ret_val
     
@@ -139,7 +146,7 @@ class rbf_spline:
         """
         if self._use_scipy_interp: 
             return self._f(point[self._parameter_keys[0]])
-        vals_sum = self._weights.dot(np.array([self.radialFunc(self.getDistFromSquare(point,i)) for i in range(self._M)]))
+        vals_sum = self._weights.dot(np.asarray([self.radialFunc(self.getDistFromSquare(point,i)) for i in range(self._M)]))
         #vals*=self._max_f_vec
         return self._max_f_vec*vals_sum
 
@@ -164,7 +171,7 @@ class rbf_spline:
 
         #vals = self._weights * np.array([self.radialFunc(self.getDistFromSquare(point,i)) for i in range(self._M)])
         #vals*=self._max_f_vec
-        vals_sum = self._weights.dot(np.array([ self.radialFunc(self.getDistFromSquare(point,i))*self.getGradDistFrom(point,i,param) for i in range(self._M)] ) )
+        vals_sum = self._weights.dot(np.asarray([ self.radialFunc(self.getDistFromSquare(point,i))*self.getGradDistFrom(point,i,param) for i in range(self._M)] ) )
         return -1./(self._eps*self._eps)*self._max_f_vec*vals_sum
 
     def calculateWeights(self,f) : 
