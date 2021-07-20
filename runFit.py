@@ -30,7 +30,11 @@ if len(opt.scanpois) : opt.scanpois = opt.scanpois.split(",")
 else: opt.scanpois = []
 # Load functions
 functions = import_module(opt.functions).functions
-grad_functions = import_module(opt.functions).grad_functions
+try:  
+  grad_functions = import_module(opt.functions).grad_functions
+except:
+  print ("No gradient functions found in ",opt.functions)
+  grad_functions=functions
 
 # Load input measurements
 inputs = []
@@ -39,7 +43,6 @@ for i in opt.inputs.split(","):
   _input = od()
   _input['name'] = _cfg.name
   _input['X'] = _cfg.X
-  print(_input.keys())
   if hasattr(_cfg,"rho"): _input['rho'] = _cfg.rho
   inputs.append(_input)
 
@@ -52,13 +55,11 @@ if len(opt.theory_uncerts):
 from tools.fitter_2 import *
 
 fit = fitter(pois,functions,grad_functions,inputs,opt.doAsimov,opt.theory_uncerts)
-
 # Perform scans
 results = od()
 
 fit.setGlobalMinimum(opt.setParamsToNominal)
-#sys.exit()
-print(opt.scanpois)
+
 for poi in fit.getFreePOIs():
 
   if (len(opt.scanpois)>0) and (poi not in opt.scanpois): continue 
@@ -68,62 +69,23 @@ for poi in fit.getFreePOIs():
   # Quadratic
   fit.setLinearOnly(False)
 
-  """
-  # Fixed scan
-  print("    * Quadratic: fixed")
-  pvals_f, chi2_f, other_poi_f, pred_f = fit.scan_fixed(poi,npoints=opt.npoints)
-  results[poi]["fixed"] = od()
-  results[poi]["fixed"]['pvals'] = pvals_f
-  results[poi]["fixed"]['chi2'] = chi2_f
-  results[poi]["fixed"]['dchi2'] = chi2_f-chi2_f.min()
-
-  results[poi]["fixed"]['predictions']   = {}
-  for pred_l in pred_f[0].keys() : 
-    results[poi]["fixed"]['predictions'][pred_l] = [ pred_f[i][pred_l] for i in range(len(pred_f)) ]
-  
-  results[poi]["fixed"]['otherpoi']   = {}
-  for other_poi_l in other_poi_f[0].keys() : 
-    results[poi]["fixed"]['otherpoi'][other_poi_l] = [ other_poi_f[i][other_poi_l] for i in range(len(other_poi_f)) ]
-  """
-
   # Profiled scan (full)
   print("    * Quadratic: profiled")
-  pvals_p, chi2_p, all_pvals_p, other_poi_p, pred_p = fit.scan_profiled(poi,npoints=opt.npoints,freezeOtherPOIS=[],resetEachStep=opt.doReset,reverseScan=opt.doFlip,verbose=True)
+  result = fit.scan_profiled(poi,npoints=opt.npoints,freezeOtherPOIS=[],resetEachStep=opt.doReset,reverseScan=opt.doFlip,verbose=True)
+  
   results[poi]["profiled"] = od()
-  results[poi]["profiled"]['pvals'] = pvals_p
-  results[poi]["profiled"]['chi2'] = chi2_p
-  results[poi]["profiled"]['allpvals'] = all_pvals_p
-  results[poi]["profiled"]['dchi2'] = chi2_p-chi2_p.min()
+  results[poi]["profiled"]['pvals'] = result.pvals
+  results[poi]["profiled"]['chi2'] = result.chi2
+  results[poi]["profiled"]['allpvals'] = result.allpvals
+  results[poi]["profiled"]['dchi2'] = result.chi2-result.chi2.min()
   
   results[poi]["profiled"]['predictions']   = {}
-  for pred_l in pred_p[0].keys() : 
-    results[poi]["profiled"]['predictions'][pred_l] = [ pred_p[i][pred_l] for i in range(len(pred_p)) ]
+  for pred_l in result.allpredictions[0].keys() : 
+    results[poi]["profiled"]['predictions'][pred_l] = [ result.allpredictions[i][pred_l] for i in range(len(result.allpredictions)) ]
   
   results[poi]["profiled"]['otherpoi']   = {}
-  for other_poi_l in other_poi_p[0].keys() : 
-    results[poi]["profiled"]['otherpoi'][other_poi_l] = [ other_poi_p[i][other_poi_l] for i in range(len(other_poi_p)) ]
-  
-
-  # Linear
-  if not opt.doLinear: continue
-  fit.setLinearOnly(True)
-
-  # Fixed scan
-  print("    * Linear: fixed")
-  pvals_f_lin, chi2_f_lin = fit.scan_fixed(poi,npoints=opt.npoints)
-  results[poi]["fixed_linear"] = od()
-  results[poi]["fixed_linear"]['pvals'] = pvals_f_lin
-  results[poi]["fixed_linear"]['chi2'] = chi2_f_lin
-  results[poi]["fixed_linear"]['dchi2'] = chi2_f_lin-chi2_f_lin.min()
-
-  # Profiled scan (full)
-  print("    * Linear: profiled")
-  pvals_p_lin, chi2_p_lin, all_pvals_p_lin = fit.scan_profiled(poi,npoints=opt.npoints,freezeOtherPOIS=[],resetEachStep=opt.doReset,reverseScan=opt.doFlip,verbose=True)
-  results[poi]["profiled_linear"] = od()
-  results[poi]["profiled_linear"]['pvals'] = pvals_p_lin
-  results[poi]["profiled_linear"]['chi2'] = chi2_p_lin
-  results[poi]["profiled_linear"]['allpvals'] = all_pvals_p_lin
-  results[poi]["profiled_linear"]['dchi2'] = chi2_p_lin-chi2_p_lin.min() 
+  for other_poi_l in result.allparams[0].keys() : 
+    results[poi]["profiled"]['otherpoi'][other_poi_l] = [ result.allparams[i][other_poi_l] for i in range(len(result.allparams)) ]
 
 extStr = opt.outputstr
 if opt.doAsimov: extStr += "_asimov"
@@ -132,7 +94,6 @@ if opt.doReset: extStr += "_reset"
 if opt.doFlip: extStr += "_flip"
 
 with open("results%s.pkl"%extStr,"wb") as fpkl: pickle.dump(results,fpkl)
-
 #from scipy import interpolate
 #import matplotlib.pyplot as plt
 #f = interpolate.interp1d(cg,dchi2)

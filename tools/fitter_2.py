@@ -19,6 +19,8 @@ from tools.input import INPUT
 from tools.helpers import *
 from tools.Chi2 import GetChi2, GetChi2Grad
 
+from utils.dataresult import dataresult 
+
 class fitter:
 
   def __init__(self,parametersOfInterest,functions,grad_functions, inputs,doAsimov=False,theory_uncerts=None):
@@ -323,8 +325,18 @@ class fitter:
       allparams.append(self.getPOIS())
       allpredictions.append(self.getPredictions())
 
-    if reverseScan: return np.flip(pvals,0), np.flip(chi2,0), np.flip(allpvals,0), allparams.reverse(), allpredictions.reverse()
-    else: return pvals, np.array(chi2), np.array(allpvals), allparams, allpredictions
+    retval = dataresult(pvals,np.array(chi2),np.array(allpvals),allparams,allpredictions)
+    if reverseScan:
+       retval.pvals=np.flip(pvals,0)
+       retval.chi2=np.flip(chi2,0)
+       retval.allpvals=np.flip(allpvals,0)
+       retval.allparams=allparams.reverse()
+       retval.allpredictions=allpredictions.reverse()
+  
+
+    return retval
+#    if reverseScan: return np.flip(pvals,0), np.flip(chi2,0), np.flip(allpvals,0), allparams.reverse(), allpredictions.reverse()
+#    else: return pvals, np.array(chi2), np.array(allpvals), allparams, allpredictions
 
   # Function to extract value of scling fnct for poi
   def scaling1D(self,poi,func,npoints=1000,reset=True):
