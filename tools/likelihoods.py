@@ -1,4 +1,5 @@
 #from functools import lru_cache
+from numba.np.ufunc.decorators import vectorize
 import numpy as np
 import sys
 from numpy.core.function_base import linspace
@@ -7,11 +8,16 @@ from scipy import interpolate
 from numpy.core.numeric import NaN 
 # object that returns a radial basis spline 
 
+from numba import njit
+
 class rbf_spline:
     def __init__(self,ndim=1,use_scipy_interp=False):
         self._ndim = ndim
         self._initialised = False 
         self._use_scipy_interp = use_scipy_interp
+
+        self.vectorized_radialFunc  = np.vectorize(self.radialFunc, excluded='self')
+        self.vectorized_squarepoint = np.vectorize(self.squarepoint, excluded='self')
     
     def _initialise(self,input_points,target_col,eps,rescaleAxis):
         # This is the basic function 
@@ -49,6 +55,15 @@ class rbf_spline:
         f_vec = np.array(f_vec)/max_f_vec
         self.calculateWeights(f_vec)
         self._max_f_vec = max_f_vec
+
+        # vectors for (hopefully) faster access
+        self._v = np.array([ [self._v_map[i][k] for k in self._parameter_keys] for i in range(self._M)])
+        if self._rescaleAxis: 
+            self._k  = np.array([self._diff_map[k]/self._axis_pts for k in self._parameter_keys])
+            self._sk = np.array([self._diff_map[k]*self._diff_map[k]/self._axis_pts2 for k in self._parameter_keys])
+        else: 
+            self._k = np.array([1. for k in self._parameter_keys])
+            self._sk = self._k
     
     def _initialise_scipy(self,input_points,target_col): 
         self._M = len(input_points)
@@ -98,12 +113,12 @@ class rbf_spline:
         return v*c
 
     def diff2(self,a,b,k):
-        if self._rescaleAxis: v=(self._axis_pts)*(a-b)/(self._diff_map[k])
+        if self._rescaleAxis: v=(self._axis_pts)*(a-b)/(k)
         else: v=a-b
         return v*v  
 
     def getDistSquare(self,i, j):
-        dk2 = np.array([ self.diff2(self._v_map[i][k],self._v_map[j][k],k) for k in self._parameter_keys ])
+        dk2 = np.array([ self.diff2(self._v_map[i][k],self._v_map[j][k],self._diff_map[k]) for k in self._parameter_keys ])
         return sum(dk2)
 
     def getDistFromSquare(self,point, i):
@@ -113,41 +128,28 @@ class rbf_spline:
     def getGradDistFrom(self,point,i,param): 
         return 2*self.diff(point[param],self._v_map[i][param],param)
 
-    """
-    def radialFunc(self,d2): 
-        return np.sqrt((d2/self._eps)**2 + 1)
-    """
     def radialFunc(self,d2):
         expo = (d2/(self._eps*self._eps))
-        #ret_val = np.exp(-1.*expo)  
         ret_val = np.e**(-1*expo)
-        #if ret_val < 1e-12 : return 0
         return ret_val
     
+    def squarepoint(self,p):
+        print(p)
+        return sum(p*p)
 
     def evaluate(self,point):
         if not self._initialised:
             print("Error - must first initialise spline with set of points before calling evaluate()") 
             return NaN
-        #if not set(point.keys())==set(self._parameter_keys): 
-        #    print ("Error - must have same variable labels, you provided - ",point.keys(),", I only know about - ",self._parameter_keys)
-        #    return NaN
-        # check bounds of points and set to edge if its there 
-        """
-        for p in point.keys():
-            if   point[p] < self._r_map[p][0]: 
-              #print("ERROR - out of range (<) for ",p,"=", point[p], "bounds=",self._r_map[p])
-              #return 1e3 
-              point[p] = self._r_map[p][0]+1e-3
-            elif point[p] > self._r_map[p][1]: 
-              #print("ERROR - out of range (>) for ",p,"=", point[p], "bounds=",self._r_map[p])
-              #return 1e3 
-              point[p] = self._r_map[p][1]-1e-3
-        """
         if self._use_scipy_interp: 
             return self._f(point[self._parameter_keys[0]])
-        vals_sum = self._weights.dot(np.asarray([self.radialFunc(self.getDistFromSquare(point,i)) for i in range(self._M)]))
-        #vals*=self._max_f_vec
+
+        p   = np.array([np.array(point[k]) for k in self._parameter_keys])
+        dx  = np.array((np.array(self._v)-p)/self._k)
+
+        dx2 = np.array([dx[i].dot(dx[i]) for i in range(self._M)])
+        phi = np.array(self.vectorized_radialFunc(dx2)) 
+        vals_sum = self._weights.dot(phi)
         return self._max_f_vec*vals_sum
 
     def evaluate_grad(self,point,param):
@@ -155,23 +157,19 @@ class rbf_spline:
             print("Error - must first initialise spline with set of points before calling evaluate_grad()") 
             return NaN
         if param not in point.keys(): return 0 # this is so I can be lazy later
-        """
-        for p in point.keys():
-            if   point[p] < self._r_map[p][0]: 
-              #print("ERROR - out of range (<) for ",p,"=", point[p], "bounds=",self._r_map[p])
-              #return 1e3 
-              point[p] = self._r_map[p][0]+1e-3
-            elif point[p] > self._r_map[p][1]: 
-              #print("ERROR - out of range (>) for ",p,"=", point[p], "bounds=",self._r_map[p])
-              #return 1e3 
-              point[p] = self._r_map[p][1]-1e-3
-        """
+
         if self._use_scipy_interp: 
             sys.exit("no gradient for scipy interpolate (yet?)")
 
-        #vals = self._weights * np.array([self.radialFunc(self.getDistFromSquare(point,i)) for i in range(self._M)])
-        #vals*=self._max_f_vec
-        vals_sum = self._weights.dot(np.asarray([ self.radialFunc(self.getDistFromSquare(point,i))*self.getGradDistFrom(point,i,param) for i in range(self._M)] ) )
+        p   = np.array([np.array(point[k]) for k in self._parameter_keys])
+        dx  = np.array((np.array(self._v)-p)/self._k)
+        dx2 = np.array([dx[i].dot(dx[i]) for i in range(self._M)]) #(self.vectorized_squarepoint(dx))
+        parameter_index = self._parameter_keys.index(param)
+
+        vpar = np.array([self._v[i][parameter_index] for i in range(self._M)])
+        ddx  = 2*(p[parameter_index]-vpar)/(self._sk[parameter_index])
+        dphi   = ddx*self.vectorized_radialFunc(dx2)
+        vals_sum = self._weights.dot(dphi)
         return -1./(self._eps*self._eps)*self._max_f_vec*vals_sum
 
     def calculateWeights(self,f) : 
