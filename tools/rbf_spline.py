@@ -5,6 +5,10 @@ from scipy import interpolate
 from numpy.core.numeric import NaN 
 # object that returns a radial basis spline 
 
+# eps is the scale of the basis function for the distance metric. Axes should be of a similar scale. reccomend to use 
+# rescaleAxis=True, in this case eps will be in terms of number of nearest points, so this should be an integer > 1 and 
+# < the total number of basis points
+
 class rbf_spline:
     def __init__(self,ndim=1,use_scipy_interp=False):
         self._ndim = ndim
