@@ -16,7 +16,6 @@ class rbf_spline:
         self._ndim = ndim
         self._initialised = False 
         self._use_scipy_interp = use_scipy_interp
-        
         self.radialFuncs = dict([("gaussian", self.radialGauss),
                                  ("multiquadratic", self.radialMultiQuad),
                                  ("inversemultiquadratic", self.radialInverseMultiQuad)])
