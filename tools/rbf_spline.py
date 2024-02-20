@@ -1,6 +1,7 @@
 import numpy as np
 import sys
 
+import pandas as pd
 # object that returns a radial basis spline 
 
 # eps is the scale of the basis function for the distance metric. Axes should be of a similar scale. reccomend to use 
@@ -44,6 +45,10 @@ class rbf_spline:
         except KeyError:
             sys.exit("Error - function '%s' not in '%s'"%(radial_func, list(self.radialFuncs.keys())))
         self._initialise(input_points,target_col,eps,rescaleAxis)
+    
+    def initialise_text(self,input_file,target_col,radial_func="gaussian",eps=10,rescaleAxis=True):
+        df = pd.read_csv(input_file,index_col=False,delimiter=' ')
+        self.initialise(df,target_col,radial_func,eps,rescaleAxis)
     
     def diff2(self, points1, points2):
         # The interpolator must have been initialised on points2
@@ -94,15 +99,24 @@ class rbf_spline:
         self._weights = np.linalg.solve(A,B)
         self._initialised=True
 
+
 """
 # very simple example of it 
 spline = rbf_spline(1)
 import matplotlib.pyplot as plt
 # from a dataframe
-import pandas as pd
-data = {'chi2':[1.6,0.8,0.4,0.2,0.1,0,0.1,0.2,0.4],'r':[-0.1,0,0.1,0.2,0.3,0.4,0.5,0.6,0.7]}
+
+# Two types on input, dataframe or text file. The latter converts to a dataframe first. 
+
+data = {'chi2':[0,0.500583,0.864236,1.38561,2.12717,0.0942076,0.195518,0.325861,0.481119,0.657985,0.853566,1.06564,1.29224,1.53174,1.78274,2.04419,2.31472,2.59386,2.8806,3.17434,3.47449,3.78047,4.0918,4.40799,4.72866,5.05341,5.38184,5.7136,6.04834,6.38599,6.72614,7.06876,7.41364,7.7604,8.10892,0.255522,0.102403,0.0218385,0.000177219,0.0269786]
+        ,'r':[1.6 , 0.9 , 0.7, 0.5 ,0.3 ,2.1 ,2.3 ,2.5 ,2.7 ,2.9 ,3.1 ,3.3 ,3.5 ,3.7 ,3.9 ,4.1 ,4.3 ,4.5 ,4.7 ,4.9 ,5.1 ,5.3 ,5.5 ,5.7 ,5.9 ,6.1 ,6.3 ,6.5 ,6.7 ,6.9 ,7.1 ,7.3 ,7.5 ,7.7 ,7.9 ,1.1 ,1.3 ,1.5 ,1.7 ,1.9]}
+
+
 df = pd.DataFrame(data=data)
-spline.initialise(df,'chi2', radial_func="gaussian", eps=2)
+
+#spline.initialise(df,'chi2', radial_func="gaussian", eps=2)
+spline.initialise_text('test.txt','chi2', radial_func="gaussian", eps=2)
+
 x = data["r"] 
 yfix = data["chi2"] 
 xx = np.linspace(min(x)+0.01,max(x)-0.01,num=100)
