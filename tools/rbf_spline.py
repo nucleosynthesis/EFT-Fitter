@@ -89,6 +89,7 @@ class rbf_spline:
         weighted_vals = self._weights * vals
         return sum(weighted_vals)
 
+<<<<<<< HEAD
     def calculateWeights(self) : 
         inp = self._input_points
         B = self._input_data[self._target_col].to_numpy()
@@ -96,6 +97,50 @@ class rbf_spline:
         A = self.radialFunc(d2) 
         np.fill_diagonal(A, 1)
     
+=======
+        p   = np.array([np.array(point[k]) for k in self._parameter_keys])
+        dx  = np.array((np.array(self._v)-p)/self._k)
+
+        dx2 = np.array([dx[i].dot(dx[i]) for i in range(self._M)])
+        phi = np.array(self.vectorized_radialFunc(dx2)) 
+        vals_sum = self._weights.dot(phi)
+        return self._max_f_vec*vals_sum
+
+    def evaluate_grad(self,point,param):
+        if not self._initialised:
+            print("Error - must first initialise spline with set of points before calling evaluate_grad()") 
+            return NaN
+        if param not in point.keys(): return 0 # this is so I can be lazy later
+
+        if self._use_scipy_interp: 
+            sys.exit("no gradient for scipy interpolate (yet?)")
+
+        p   = np.array([np.array(point[k]) for k in self._parameter_keys])
+        dx  = np.array((np.array(self._v)-p)/self._k)
+        dx2 = np.array([dx[i].dot(dx[i]) for i in range(self._M)]) #(self.vectorized_squarepoint(dx))
+        parameter_index = self._parameter_keys.index(param)
+
+        vpar = np.array([self._v[i][parameter_index] for i in range(self._M)])
+        ddx  = 2*(p[parameter_index]-vpar)/(self._sk[parameter_index])
+        # for generic radial function, change below to use "self.vectorised_radialFunc_grad(dx2)" once implemented for all radial functions,  
+        # and remove -1 from the return at the end! 
+        dphi   = ddx*self.vectorized_radialFunc(dx2)  # this is true ONLY for the case of the gaussian radial function! 
+        vals_sum = self._weights.dot(dphi)
+        return -1./(self._eps*self._eps)*self._max_f_vec*vals_sum
+
+    def calculateWeights(self,f) : 
+        A = np.array([np.zeros(self._M) for i in range(self._M)])
+
+        for i in range(self._M):
+            A[i][i]=1.
+            for j in range(i+1,self._M):
+                d2  = self.getDistSquare(i,j)
+                rad = self.vectorized_radialFunc(d2)
+                A[i][j] = rad
+                A[j][i] = rad
+        
+        B = np.array(f)
+>>>>>>> 91ac1237e47d374bb15182aa7e0d36e09b8f6943
         self._weights = np.linalg.solve(A,B)
         self._initialised=True
 
