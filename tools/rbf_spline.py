@@ -1,164 +1,240 @@
-import numpy as np
 import sys
-
+import numpy as np
 import pandas as pd
-# object that returns a radial basis spline 
+import numpy.typing as npt
+from typing import Tuple
 
-# eps is the scale of the basis function for the distance metric. Axes should be of a similar scale. reccomend to use 
-# rescaleAxis=True, in this case eps will be in terms of number of nearest points, so this should be an integer > 1 and 
-# < the total number of basis points
+# -----------------
+# Basis functions
+# -----------------
+class radialGauss():
+    def __init__(self) -> None:
+        return
+    def evaluate(self, 
+                 input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return np.exp(-input)
+    def getDeltaPhi(self, 
+                    input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return -self.evaluate(input)
+
+class radialMultiQuad():
+    def __init__(self) -> None:
+        return
+    def evaluate(self, 
+                 input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return np.sqrt(1+input)
+    def getDeltaPhi(self, 
+                    input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return 1/(2*self.evaluate(input))
+    
+class radialInverseMultiQuad():
+    def __init__(self) -> None:
+        return
+    def evaluate(self, 
+                 input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return np.divide(1, np.sqrt(1+input))
+    def getDeltaPhi(self, 
+                    input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return -1/(2*np.power(1+input, 3/2))
+
+class radialLinear():
+    def __init__(self) -> None:
+        return
+    def evaluate(self, 
+                 input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return np.sqrt(input)
+    def getDeltaPhi(self, 
+                    input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return 1/(2*self.evaluate(input))
+
+class radialCubic():
+    def __init__(self) -> None:
+        return
+    def evaluate(self, 
+                 input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return np.power(input, 3/2)
+    def getDeltaPhi(self, 
+                    input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return 3*np.sqrt(input)/2
+    
+class radialQuintic():
+    def __init__(self) -> None:
+        return
+    def evaluate(self, 
+                 input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return np.power(input, 5/2)
+    def getDeltaPhi(self, 
+                    input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return 5*np.power(input, 3/2)/2
+
+class radialThinPlate():
+    def __init__(self) -> None:
+        return
+    def evaluate(self, 
+                 input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return np.multiply(input, np.log(np.sqrt(input)))
+    def getDeltaPhi(self, 
+                    input: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        return (np.log(input)+1)/2
+# -----------------
 
 class rbf_spline:
-    def __init__(self,ndim=1):
+    def __init__(self, ndim=1) -> None:
         self._ndim = ndim
         self._initialised = False
-        self.radialFuncs = dict([("gaussian", self.radialGauss),
-                                 ("multiquadric", self.radialMultiQuad),
-                                 ("inversemultiquadric", self.radialInverseMultiQuad),
-                                 ("cubic", self.radialCubic)])
-    
-    def _initialise(self,input_data,target_col,eps,rescaleAxis):
+        self._radialFuncs = dict(
+            [("gaussian", radialGauss),
+             ("multiquadric", radialMultiQuad),
+             ("inversemultiquadric", radialInverseMultiQuad),
+             ("linear", radialLinear),
+             ("cubic", radialCubic),
+             ("quintic", radialQuintic),
+             ("thinplate", radialThinPlate)
+            ])
+
+    def _initialise(self, input_data: pd.DataFrame, target: str, 
+                    eps: float, rescaleAxis: bool) -> None:
+        # Parse args
         self._input_data = input_data
-        self._target_col = target_col
-        self._input_points = input_data.drop(target_col, 
-                                             axis="columns").to_numpy()
-        
+        self._target_col = target
+        self._input_pts = input_data.drop(target, axis="columns").to_numpy()
         self._eps = eps  
         self._rescaleAxis = rescaleAxis
-
-        self._M = len(input_data) # Num points
-        if self._M < 1 : sys.exit("Error - rbf_spline must be initialised with at least one basis point")
-        
         self._parameter_keys = list(input_data.columns)
-        self._parameter_keys.remove(target_col)
+        self._parameter_keys.remove(target)
 
+        # Check number of basis points
+        self._M = len(input_data)
+        if self._M < 1 : 
+            sys.exit("Error - At least one basis point is required")
+        
+        # Check dimensions
         if self._ndim!=len(self._parameter_keys): 
-            sys.exit("Error - initialise given points with more dimensions (%g) than ndim (%g)"%(len(self._parameter_keys),self._ndim))
+            sys.exit(f"Error - initialise given points with more dimensions " +
+                     f"({len(self._parameter_keys)}) than ndim ({self._ndim})")
 
-        self._axis_pts = self._M**(1./self._ndim)
-       
+        # Get scalings by axis (column)
+        self._axis_pts = np.power(self._M, 1./self._ndim)
+        if self._rescaleAxis:
+            self._scale = np.divide(self._axis_pts, 
+                                    (np.max(self._input_pts, axis=0)[0] -
+                                     np.min(self._input_pts, axis=0)[0]))
+        else:
+            self._scale = 1
+
         self.calculateWeights()
 
-    def initialise(self,input_points,target_col,radial_func="gaussian",eps=10,rescaleAxis=True):
+    def initialise(self, input_data: pd.DataFrame, target_col: str, 
+                   radial_func: str="gaussian", eps: float=10.,
+                   rescaleAxis: bool=True) -> None:
+        # Get basis function and initialise
         try:
-            self.radialFunc = self.radialFuncs[radial_func]
+            self.radialFunc = self._radialFuncs[radial_func]()
         except KeyError:
-            sys.exit("Error - function '%s' not in '%s'"%(radial_func, list(self.radialFuncs.keys())))
-        self._initialise(input_points,target_col,eps,rescaleAxis)
-    
-    def initialise_text(self,input_file,target_col,radial_func="gaussian",eps=10,rescaleAxis=True):
-        df = pd.read_csv(input_file,index_col=False,delimiter=' ')
+            sys.exit(f"Error - function '{radial_func}' not in " +
+                     f"'{list(self._radialFuncs.keys())}'")
+        self._initialise(input_data, target_col, eps, rescaleAxis)
+        
+    def initialise_text(self, input_file: str, target_col, 
+                        radial_func: str="gaussian", eps: float=10.,
+                        rescaleAxis: bool=True) -> None:
+        df = pd.read_csv(input_file, index_col=False, delimiter=' ')
         self.initialise(df,target_col,radial_func,eps,rescaleAxis)
-    
-    def diff2(self, points1, points2):
-        # The interpolator must have been initialised on points2
-        v = points1[:, np.newaxis, :] - points2[np.newaxis, :, :]
-        if self._rescaleAxis: v=self._axis_pts*v/(np.max(points2, axis=0) - np.min(points2, axis=0))
-        return np.power(v, 2)
-
-    def getDistSquare(self, col):
-        return self.diff2(col, col)
         
-    def getDistFromSquare(self, point, inp):
-        dk2 = np.sum(self.diff2(point, inp), axis=-1).flatten()
-        return dk2
-
-    def getRadialArg(self, d2):
-        return (d2/(self._eps*self._eps))
-
-    def radialGauss(self,d2):
-        return np.e**(-1*self.getRadialArg(d2))
+    def diff(self, points1: npt.NDArray[np.float32],
+             points2: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        # Get diff between two sets of points, pairwise
+        v = np.multiply(self._scale, (points1[:, np.newaxis, :] - 
+                                      points2[np.newaxis, :, :]))
+        return v    
     
-    def radialMultiQuad(self,d2):
-        return np.sqrt(1+self.getRadialArg(d2)) 
-        
-    def radialInverseMultiQuad(self, d2):
-        return 1/self.radialMultiQuad(self.getRadialArg(d2))
+    def diff2(self, points1: npt.NDArray[np.float32], 
+              points2: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        # Get squared diff between two sets of points, pairwise
+        return np.power(self.diff(points1, points2), 2)
+    
+    def getDistFromSquare(self, point: npt.NDArray[np.float32]):
+        # Get distance between a point and the basis points
+        return np.sum(self.diff2(point, self._input_pts), axis=-1)
+    
+    def getRadialArg(self, 
+                     d2: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        # Get arg to pass to basis functions
+        return np.divide(d2, self._eps*self._eps)
 
-    def radialCubic(self, d2):
-        return np.power(self.getRadialArg(d2), 3/2)
+    def grad_r2(self, point):
+        # Calculates grad(|r|^2)
+        return (2*np.sum(self.diff(point, self._input_pts), axis=-1)/
+                (self._eps*self._eps))
 
-    def evaluate(self,point):
+    def evaluate(self, point: pd.DataFrame) -> Tuple[npt.NDArray[np.float32], 
+                                                     npt.NDArray[np.float32]]:
+        # Check input is okay (can be turned off for perfomance)
         if not self._initialised:
-            print("Error - must first initialise spline with set of points before calling evaluate()") 
-            return np.nan
-        if not set(point.keys())==set(self._parameter_keys): 
-            print ("Error - must have same variable labels, you provided - ",point.keys(),", I only know about - ",self._parameter_keys)
-            return np.nan
-        vals = self.radialFunc(self.getDistFromSquare(point.to_numpy(), self._input_points))
+            print("Error - must first initialise spline with set of points " + 
+                  "before calling evaluate()") 
+            return (np.nan, np.nan)
+        if not set(point.keys()) == set(self._parameter_keys): 
+            print(f"Error - {point.keys()} must match {self._parameter_keys}")
+            return (np.nan, np.nan)
+        
+        # Evaluate spline at point
+        point_arr = point.to_numpy()
+        radial_arg = self.getRadialArg(self.getDistFromSquare(point_arr))
+        vals = self.radialFunc.evaluate(radial_arg).flatten()
+        grads = (self.grad_r2(point_arr) * 
+                 self.radialFunc.getDeltaPhi(radial_arg) * self._scale)
+        
+        # Get val and grads
         weighted_vals = self._weights * vals
-        return sum(weighted_vals)
-
-        p   = np.array([np.array(point[k]) for k in self._parameter_keys])
-        dx  = np.array((np.array(self._v)-p)/self._k)
-
-        dx2 = np.array([dx[i].dot(dx[i]) for i in range(self._M)])
-        phi = np.array(self.vectorized_radialFunc(dx2)) 
-        vals_sum = self._weights.dot(phi)
-        return self._max_f_vec*vals_sum
-
-    def evaluate_grad(self,point,param):
-        if not self._initialised:
-            print("Error - must first initialise spline with set of points before calling evaluate_grad()") 
-            return NaN
-        if param not in point.keys(): return 0 # this is so I can be lazy later
-
-        if self._use_scipy_interp: 
-            sys.exit("no gradient for scipy interpolate (yet?)")
-
-        p   = np.array([np.array(point[k]) for k in self._parameter_keys])
-        dx  = np.array((np.array(self._v)-p)/self._k)
-        dx2 = np.array([dx[i].dot(dx[i]) for i in range(self._M)]) #(self.vectorized_squarepoint(dx))
-        parameter_index = self._parameter_keys.index(param)
-
-        vpar = np.array([self._v[i][parameter_index] for i in range(self._M)])
-        ddx  = 2*(p[parameter_index]-vpar)/(self._sk[parameter_index])
-        # for generic radial function, change below to use "self.vectorised_radialFunc_grad(dx2)" once implemented for all radial functions,  
-        # and remove -1 from the return at the end! 
-        dphi   = ddx*self.vectorized_radialFunc(dx2)  # this is true ONLY for the case of the gaussian radial function! 
-        vals_sum = self._weights.dot(dphi)
-        return -1./(self._eps*self._eps)*self._max_f_vec*vals_sum
-
-    def calculateWeights(self,f) : 
-        A = np.array([np.zeros(self._M) for i in range(self._M)])
-
-        for i in range(self._M):
-            A[i][i]=1.
-            for j in range(i+1,self._M):
-                d2  = self.getDistSquare(i,j)
-                rad = self.vectorized_radialFunc(d2)
-                A[i][j] = rad
-                A[j][i] = rad
+        weighted_grads = self._weights * grads
+        ret_val = np.sum(weighted_vals)
+        ret_grad = np.sum(weighted_grads)
         
-        B = np.array(f)
-        self._weights = np.linalg.solve(A,B)
+        return ret_val, ret_grad
+        
+    def calculateWeights(self) -> None: 
+        # Solve interpolation matrix equation for weights
+        inp = self._input_pts
+        B = self._input_data[self._target_col].to_numpy()
+        d2 = np.sum(self.diff2(inp, inp), axis=2)
+        A = self.radialFunc.evaluate(self.getRadialArg(d2)) 
+        np.fill_diagonal(A, 1)
+    
+        self._weights = np.linalg.solve(A, B)
         self._initialised=True
-
-
+     
 """
-# very simple example of it 
-spline = rbf_spline(1)
+# Simple example
 import matplotlib.pyplot as plt
-# from a dataframe
-
-# Two types on input, dataframe or text file. The latter converts to a dataframe first. 
-
+import numpy as np
 data = {'chi2':[0,0.500583,0.864236,1.38561,2.12717,0.0942076,0.195518,0.325861,0.481119,0.657985,0.853566,1.06564,1.29224,1.53174,1.78274,2.04419,2.31472,2.59386,2.8806,3.17434,3.47449,3.78047,4.0918,4.40799,4.72866,5.05341,5.38184,5.7136,6.04834,6.38599,6.72614,7.06876,7.41364,7.7604,8.10892,0.255522,0.102403,0.0218385,0.000177219,0.0269786]
         ,'r':[1.6 , 0.9 , 0.7, 0.5 ,0.3 ,2.1 ,2.3 ,2.5 ,2.7 ,2.9 ,3.1 ,3.3 ,3.5 ,3.7 ,3.9 ,4.1 ,4.3 ,4.5 ,4.7 ,4.9 ,5.1 ,5.3 ,5.5 ,5.7 ,5.9 ,6.1 ,6.3 ,6.5 ,6.7 ,6.9 ,7.1 ,7.3 ,7.5 ,7.7 ,7.9 ,1.1 ,1.3 ,1.5 ,1.7 ,1.9]}
-
-
 df = pd.DataFrame(data=data)
-
-#spline.initialise(df,'chi2', radial_func="gaussian", eps=2)
-spline.initialise_text('test.txt','chi2', radial_func="gaussian", eps=2)
-
+spline = rbf_spline(1)
+spline.initialise(df,'chi2', radial_func="cubic", eps=1, rescaleAxis=True)
+# spline.initialise_text('test.txt','chi2', radial_func="gaussian", eps=2)
 x = data["r"] 
 yfix = data["chi2"] 
-xx = np.linspace(min(x)+0.01,max(x)-0.01,num=100)
-yint = [spline.evaluate(pd.DataFrame({"r":[xi]})) for xi in xx]
-plt.plot(x,yfix,marker=".",linestyle="None")
-plt.plot(xx,yint,color="red")
-plt.xlabel("r")
-plt.ylabel("chi2")
+xx = np.linspace(min(x)+0.01,max(x)-0.01,num=50)
+
+yint = np.empty(xx.shape)
+ygrad_int = np.empty(xx.shape)
+for i, xi in enumerate(xx):
+    val, grad = spline.evaluate(pd.DataFrame({"r":[xi]}))
+    yint[i] = val
+    ygrad_int[i] = grad
+ygrad_fdiff = np.gradient(yint, xx)
+
+fig, ax = plt.subplots(2, 1, sharex=True)
+fig.subplots_adjust(hspace=0)
+ax[0].plot(x,yfix,marker=".",linestyle="None")
+ax[0].plot(xx,yint,color="red")
+ax[0].set_ylabel("chi2")
+
+ax[1].plot(xx,ygrad_fdiff)
+ax[1].plot(xx,ygrad_int,color="red")
+ax[1].set_xlabel("r")
+ax[1].set_ylabel("grad chi2")
 plt.show()
 """
