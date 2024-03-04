@@ -167,8 +167,7 @@ class rbf_spline:
         return (2*np.sum(self.diff(point, self._input_pts), axis=-1)/
                 (self._eps*self._eps))
 
-    def evaluate(self, point: pd.DataFrame) -> Tuple[npt.NDArray[np.float32], 
-                                                     npt.NDArray[np.float32]]:
+    def evaluate(self, point: pd.DataFrame) -> npt.NDArray[np.float32]:
         # Check input is okay (can be turned off for perfomance)
         if not self._initialised:
             print("Error - must first initialise spline with set of points " + 
@@ -182,16 +181,34 @@ class rbf_spline:
         point_arr = point.to_numpy()
         radial_arg = self.getRadialArg(self.getDistFromSquare(point_arr))
         vals = self.radialFunc.evaluate(radial_arg).flatten()
+        
+        # Get val and grads
+        weighted_vals = self._weights * vals
+        ret_val = np.sum(weighted_vals)
+        
+        return ret_val
+    
+    def evaluate_grad(self, point: pd.DataFrame) -> npt.NDArray[np.float32]:
+        # Check input is okay (can be turned off for perfomance)
+        if not self._initialised:
+            print("Error - must first initialise spline with set of points " + 
+                  "before calling evaluate()") 
+            return (np.nan, np.nan)
+        if not set(point.keys()) == set(self._parameter_keys): 
+            print(f"Error - {point.keys()} must match {self._parameter_keys}")
+            return (np.nan, np.nan)
+
+        # Evaluate spline at point
+        point_arr = point.to_numpy()
+        radial_arg = self.getRadialArg(self.getDistFromSquare(point_arr))
         grads = (self.grad_r2(point_arr) * 
                  self.radialFunc.getDeltaPhi(radial_arg) * self._scale)
         
         # Get val and grads
-        weighted_vals = self._weights * vals
         weighted_grads = self._weights * grads
-        ret_val = np.sum(weighted_vals)
         ret_grad = np.sum(weighted_grads)
         
-        return ret_val, ret_grad
+        return ret_grad
         
     def calculateWeights(self) -> None: 
         # Solve interpolation matrix equation for weights
@@ -202,7 +219,7 @@ class rbf_spline:
         np.fill_diagonal(A, 1)
     
         self._weights = np.linalg.solve(A, B)
-        self._initialised=True
+        self._initialised = True
      
 """
 # Simple example
@@ -221,7 +238,8 @@ xx = np.linspace(min(x)+0.01,max(x)-0.01,num=50)
 yint = np.empty(xx.shape)
 ygrad_int = np.empty(xx.shape)
 for i, xi in enumerate(xx):
-    val, grad = spline.evaluate(pd.DataFrame({"r":[xi]}))
+    val = spline.evaluate(pd.DataFrame({"r":[xi]}))
+    grad = spline.evaluate_grad(pd.DataFrame({"r":[xi]}))
     yint[i] = val
     ygrad_int[i] = grad
 ygrad_fdiff = np.gradient(yint, xx)
