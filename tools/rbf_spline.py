@@ -89,15 +89,6 @@ class rbf_spline:
         weighted_vals = self._weights * vals
         return sum(weighted_vals)
 
-<<<<<<< HEAD
-    def calculateWeights(self) : 
-        inp = self._input_points
-        B = self._input_data[self._target_col].to_numpy()
-        d2 = np.sum(self.diff2(inp, inp), axis=2)
-        A = self.radialFunc(d2) 
-        np.fill_diagonal(A, 1)
-    
-=======
         p   = np.array([np.array(point[k]) for k in self._parameter_keys])
         dx  = np.array((np.array(self._v)-p)/self._k)
 
@@ -140,7 +131,6 @@ class rbf_spline:
                 A[j][i] = rad
         
         B = np.array(f)
->>>>>>> 91ac1237e47d374bb15182aa7e0d36e09b8f6943
         self._weights = np.linalg.solve(A,B)
         self._initialised=True
 
