@@ -192,7 +192,9 @@ class rbf_spline:
 
         vpar = np.array([self._v[i][parameter_index] for i in range(self._M)])
         ddx  = 2*(p[parameter_index]-vpar)/(self._sk[parameter_index])
-        dphi   = ddx*self.vectorized_radialFunc(dx2)
+        # for generic radial function, change below to use "self.vectorised_radialFunc_grad(dx2)" once implemented for all radial functions,  
+        # and remove -1 from the return at the end! 
+        dphi   = ddx*self.vectorized_radialFunc(dx2)  # this is true ONLY for the case of the gaussian radial function! 
         vals_sum = self._weights.dot(dphi)
         return -1./(self._eps*self._eps)*self._max_f_vec*vals_sum
 
