@@ -2,7 +2,6 @@ import sys
 import numpy as np
 import pandas as pd
 import numpy.typing as npt
-from typing import Tuple
 
 # -----------------
 # Basis functions
