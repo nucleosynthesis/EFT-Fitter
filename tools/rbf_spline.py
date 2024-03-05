@@ -116,8 +116,8 @@ class rbf_spline:
         self._axis_pts = np.power(self._M, 1./self._ndim)
         if self._rescaleAxis:
             self._scale = np.divide(self._axis_pts, 
-                                    (np.max(self._input_pts, axis=0)[0] -
-                                     np.min(self._input_pts, axis=0)[0]))
+                                    (np.max(self._input_pts, axis=0) -
+                                     np.min(self._input_pts, axis=0)))
         else:
             self._scale = 1
 
@@ -153,61 +153,61 @@ class rbf_spline:
         return np.power(self.diff(points1, points2), 2)
     
     def getDistFromSquare(self, point: npt.NDArray[np.float32]):
-        # Get distance between a point and the basis points
-        return np.sum(self.diff2(point, self._input_pts), axis=-1)
+        # Get distance between a point and the basis points, per axis
+        return self.diff2(point, self._input_pts)
     
     def getRadialArg(self, 
                      d2: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
         # Get arg to pass to basis functions
         return np.divide(d2, self._eps*self._eps)
 
-    def grad_r2(self, point):
+    def grad_r2(self, point) -> npt.NDArray[np.float32]:
         # Calculates grad(|r|^2)
-        return (2*np.sum(self.diff(point, self._input_pts), axis=-1)/
-                (self._eps*self._eps))
+        return (2*self.diff(point, self._input_pts)*self._scale/(self._eps*self._eps))
 
     def evaluate(self, point: pd.DataFrame) -> npt.NDArray[np.float32]:
         # Check input is okay (can be turned off for perfomance)
         if not self._initialised:
             print("Error - must first initialise spline with set of points " + 
                   "before calling evaluate()") 
-            return (np.nan, np.nan)
+            return np.array(np.nan)
         if not set(point.keys()) == set(self._parameter_keys): 
             print(f"Error - {point.keys()} must match {self._parameter_keys}")
-            return (np.nan, np.nan)
+            return np.array(np.nan)
         
         # Evaluate spline at point
         point_arr = point.to_numpy()
-        radial_arg = self.getRadialArg(self.getDistFromSquare(point_arr))
+        radial_arg = self.getRadialArg(np.sum(self.getDistFromSquare(point_arr), axis=-1))
         vals = self.radialFunc.evaluate(radial_arg).flatten()
         
         # Get val and grads
         weighted_vals = self._weights * vals
         ret_val = np.sum(weighted_vals)
         
-        return ret_val
+        return ret_val.astype(float)
     
     def evaluate_grad(self, point: pd.DataFrame) -> npt.NDArray[np.float32]:
         # Check input is okay (can be turned off for perfomance)
         if not self._initialised:
             print("Error - must first initialise spline with set of points " + 
                   "before calling evaluate()") 
-            return (np.nan, np.nan)
+            return np.array(np.nan)
         if not set(point.keys()) == set(self._parameter_keys): 
             print(f"Error - {point.keys()} must match {self._parameter_keys}")
-            return (np.nan, np.nan)
+            return np.array(np.nan)
 
         # Evaluate spline at point
         point_arr = point.to_numpy()
         radial_arg = self.getRadialArg(self.getDistFromSquare(point_arr))
-        grads = (self.grad_r2(point_arr) * 
-                 self.radialFunc.getDeltaPhi(radial_arg) * self._scale)
+        delta_phi = np.linalg.norm(self.radialFunc.getDeltaPhi(radial_arg), axis=-1)
+        np.set_printoptions(linewidth=200)
+        grads = (self.grad_r2(point_arr) * delta_phi.reshape(1, self._M, 1))
         
         # Get val and grads
-        weighted_grads = self._weights * grads
-        ret_grad = np.sum(weighted_grads)
+        weighted_grads = np.multiply(self._weights.reshape(1, self._M, 1), grads)
+        ret_grad = np.sum(weighted_grads, axis=1)
         
-        return ret_grad
+        return ret_grad.astype(float)
         
     def calculateWeights(self) -> None: 
         # Solve interpolation matrix equation for weights
@@ -240,7 +240,7 @@ for i, xi in enumerate(xx):
     val = spline.evaluate(pd.DataFrame({"r":[xi]}))
     grad = spline.evaluate_grad(pd.DataFrame({"r":[xi]}))
     yint[i] = val
-    ygrad_int[i] = grad
+    ygrad_int[i] = grad.flatten()[0]
 ygrad_fdiff = np.gradient(yint, xx)
 
 fig, ax = plt.subplots(2, 1, sharex=True)
