@@ -199,9 +199,9 @@ class rbf_spline:
         # Evaluate spline at point
         point_arr = point.to_numpy()
         radial_arg = self.getRadialArg(self.getDistFromSquare(point_arr))
-        delta_phi = np.linalg.norm(self.radialFunc.getDeltaPhi(radial_arg), axis=-1)
-        np.set_printoptions(linewidth=200)
-        grads = (self.grad_r2(point_arr) * delta_phi.reshape(1, self._M, 1))
+        delta_phi = self.radialFunc.getDeltaPhi(radial_arg)
+        grad_phi = np.linalg.norm(delta_phi, axis=-1)
+        grads = self.grad_r2(point_arr) * grad_phi.reshape(1, self._M, 1) * np.sign(delta_phi)
         
         # Get val and grads
         weighted_grads = np.multiply(self._weights.reshape(1, self._M, 1), grads)
@@ -217,8 +217,21 @@ class rbf_spline:
         A = self.radialFunc.evaluate(self.getRadialArg(d2)) 
         np.fill_diagonal(A, 1)
     
-        self._weights = np.linalg.solve(A, B)
+        self._interp_mat = A
+        self._inv_interp_mat = np.linalg.inv(A)
+        self._weights = np.dot(self._inv_interp_mat, B)
         self._initialised = True
+        
+    def calculateLOOCV(self) -> float:
+        # Get leave-one-out cross-validation error, implementing
+        # https://doi.org/10.1023/A:1018975909870]
+        if not self._initialised:
+            print("Error - must first initialise spline with set of points " + 
+                  "before calling evaluate()") 
+            return np.nan
+        
+        cost_vec = self._weights / self._inv_interp_mat.diagonal()       
+        return np.linalg.norm(cost_vec)
      
 """
 # Simple example
@@ -228,11 +241,25 @@ data = {'chi2':[0,0.500583,0.864236,1.38561,2.12717,0.0942076,0.195518,0.325861,
         ,'r':[1.6 , 0.9 , 0.7, 0.5 ,0.3 ,2.1 ,2.3 ,2.5 ,2.7 ,2.9 ,3.1 ,3.3 ,3.5 ,3.7 ,3.9 ,4.1 ,4.3 ,4.5 ,4.7 ,4.9 ,5.1 ,5.3 ,5.5 ,5.7 ,5.9 ,6.1 ,6.3 ,6.5 ,6.7 ,6.9 ,7.1 ,7.3 ,7.5 ,7.7 ,7.9 ,1.1 ,1.3 ,1.5 ,1.7 ,1.9]}
 df = pd.DataFrame(data=data)
 spline = rbf_spline(1)
-spline.initialise(df,'chi2', radial_func="cubic", eps=1, rescaleAxis=True)
 # spline.initialise_text('test.txt','chi2', radial_func="gaussian", eps=2)
+
+# Get the optimal epsilon by minimising the LOOCV error
+eps_range = np.linspace(0.01, 5, num=25)
+best_eps = None
+best_loocv = np.inf
+for eps in eps_range:
+    spline.initialise(df,'chi2', radial_func="gaussian", eps=eps, rescaleAxis=True)
+    loocv = spline.calculateLOOCV()
+    if loocv < best_loocv:
+        best_loocv = loocv
+        best_eps = eps
+    print(f"LOOCV: {loocv} for epsilon: {eps}")
+print(f"Best epsilon: {best_eps}")
+spline.initialise(df,'chi2', radial_func="gaussian", eps=best_eps, rescaleAxis=True)
+
 x = data["r"] 
 yfix = data["chi2"] 
-xx = np.linspace(min(x)+0.01,max(x)-0.01,num=50)
+xx = np.linspace(min(x)+0.01,max(x)-0.01,num=100)
 
 yint = np.empty(xx.shape)
 ygrad_int = np.empty(xx.shape)
