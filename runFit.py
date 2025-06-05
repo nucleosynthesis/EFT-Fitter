@@ -15,6 +15,7 @@ def get_options():
   parser.add_option('--functions', dest='functions', default='functions.HEL_STXS', help="Name of json file storing functions")
   parser.add_option('--inputs', dest='inputs', default='', help="Comma separated list of input files")
   parser.add_option('--npoints', dest='npoints', default=20,type=int, help="number of points in the scan")
+  parser.add_option('--justFit', dest='justFit', default=False,action='store_true', help="Just run the fit without scanning")
   parser.add_option('--theory_uncert', dest='theory_uncerts', default='', help="config for theory uncertainties")
   parser.add_option('--doAsimov', dest='doAsimov', default=False, action="store_true", help="Do asimov fit (i.e. set all best-fit to nominal)")
   parser.add_option('--doReset', dest='doReset', default=False, action="store_true", help="Reset poi values each step in profiled scan")
@@ -33,8 +34,8 @@ functions = import_module(opt.functions).functions
 try:  
   grad_functions = import_module(opt.functions).grad_functions
 except:
-  print ("No gradient functions found in ",opt.functions)
-  grad_functions=functions
+  print ("No gradient functions found in ",opt.functions, " ... will calculate numerical gradients")
+  grad_functions={}
 
 # Load input measurements
 inputs = []
@@ -59,6 +60,7 @@ fit = fitter(pois,functions,grad_functions,inputs,opt.doAsimov,opt.theory_uncert
 results = od()
 
 fit.setGlobalMinimum(opt.setParamsToNominal)
+if opt.justFit: sys.exit(0)
 
 for poi in fit.getFreePOIs():
 
@@ -66,11 +68,11 @@ for poi in fit.getFreePOIs():
   print(" --> Running fits for: %s"%poi)
   results[poi] = od()
 
-  # Quadratic
+  # Quadratic (only needed for the EFT models)
   fit.setLinearOnly(False)
 
   # Profiled scan (full)
-  print("    * Quadratic: profiled")
+  print("    * profiled")
   result = fit.scan_profiled(poi,npoints=opt.npoints,freezeOtherPOIS=[],resetEachStep=opt.doReset,reverseScan=opt.doFlip,verbose=True)
   
   results[poi]["profiled"] = od()
@@ -86,6 +88,24 @@ for poi in fit.getFreePOIs():
   results[poi]["profiled"]['otherpoi']   = {}
   for other_poi_l in result.allparams[0].keys() : 
     results[poi]["profiled"]['otherpoi'][other_poi_l] = [ result.allparams[i][other_poi_l] for i in range(len(result.allparams)) ]
+
+  # Fixed scan (full)
+  print("    * fixed")
+  result = fit.scan_fixed(poi,npoints=opt.npoints)
+  
+  results[poi]["fixed"] = od()
+  results[poi]["fixed"]['pvals'] = result.pvals
+  results[poi]["fixed"]['chi2'] = result.chi2
+  results[poi]["fixed"]['allpvals'] = result.allpvals
+  results[poi]["fixed"]['dchi2'] = result.chi2-result.chi2.min()
+  
+  results[poi]["fixed"]['predictions']   = {}
+  for pred_l in result.allpredictions[0].keys() : 
+    results[poi]["fixed"]['predictions'][pred_l] = [ result.allpredictions[i][pred_l] for i in range(len(result.allpredictions)) ]
+  
+  results[poi]["fixed"]['otherpoi']   = {}
+  for other_poi_l in result.allparams[0].keys() : 
+    results[poi]["fixed"]['otherpoi'][other_poi_l] = [ result.allparams[i][other_poi_l] for i in range(len(result.allparams)) ]
 
 extStr = opt.outputstr
 if opt.doAsimov: extStr += "_asimov"

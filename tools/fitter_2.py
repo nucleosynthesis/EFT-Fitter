@@ -1,5 +1,5 @@
 # Simple python fitting object, set fitter and gradient
-SCIPY_MINIMIZE=True
+SCIPY_MINIMIZE=False
 USE_GRADIENT=True
 
 if SCIPY_MINIMIZE : from scipy.optimize import minimize
@@ -28,6 +28,10 @@ class fitter:
     # can we not make the ones below the same?
     self.FUNCTIONS = functions
     self.GRADIENTS = grad_functions
+    if self.GRADIENTS == {}: 
+      USE_GRADIENT=False
+    else:
+      USE_GRADIENT=True
     self.INPUTS = []
     self.doAsimov = doAsimov
     self.linearOnly = False
@@ -47,7 +51,7 @@ class fitter:
     self.prepareDPTerms(self.GRADIENTS)
 
     self.global_min_chi2 = 0 
-
+  
     print("Minimization configured using ...")
     print("  minimizer: %s"%("scipy.minimize" if SCIPY_MINIMIZE else "iminuit"))
     print("  analytic gradient: %s"%("on" if USE_GRADIENT else "off"))
@@ -213,12 +217,30 @@ class fitter:
     #for p in self.POIS.keys(): print(p,self.POIS[p]['nominal'])
     #print(self.P0)
     freezePOIS = self.getFrozenPOIs()
-    self.minimize(freezePOIS=freezePOIS,verbose=False)
+    self.minimize(freezePOIS=freezePOIS,verbose=False,doHesse=True) 
     self.global_min_chi2=self.FitResult.fun
     self.evaluatePTerms()
     print("Best-fit at global min ...")
+
+    # need a factor of 2 because we use -2*lnL  
+    covariance = 2*self.FitResult.hess_inv
+    uncert = np.sqrt(np.diag(covariance))
+    
     for i,p in enumerate(self.POIS.keys()): 
-     if p in self.getFreePOIs(): print(" ",p,"%.3f"%self.P0[i])
+     if p in self.getFreePOIs(): print(" ",p,"%.3f"%self.P0[i]," +/- %.3f"%uncert[i])
+    
+    correlation = covariance.copy()
+    for i in range(len(covariance)):
+      for j in range(len(covariance)):
+        if i == j: correlation[i][j] = 1.
+        else: correlation[i][j] = covariance[i][j]/(uncert[i]*uncert[j])
+    
+    print("Covariance Matrix")
+    printMatrix(covariance,pars=self.getFreePOIs())
+
+    print ("Correlation matrix")
+    printMatrix(correlation,pars=self.getFreePOIs())
+
     if setParamsToNominal :
       i=0 
       for  p,vals in self.POIS.items(): 
@@ -229,7 +251,7 @@ class fitter:
     #return np.array([self.global_min_chi2]), np.array([self.P0])
 
   # Minimizer function
-  def minimize(self,freezePOIS=[],verbose=True):
+  def minimize(self,freezePOIS=[],verbose=True,doHesse=False):
 
     # Define pois to profile
     self.PToFitList, PToFit, PToFitBounds = [], [], []
@@ -246,13 +268,14 @@ class fitter:
     
     prefit_time  = time.perf_counter()     
     if SCIPY_MINIMIZE: 
-      if USE_GRADIENT: self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,jac=GetChi2Grad)
-      else: self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds)
+      if USE_GRADIENT: self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,jac=GetChi2Grad,method='L-BFGS-B')
+      else: self.FitResult = minimize(GetChi2,PToFit,args=self,bounds=PToFitBounds,method='L-BFGS-B')
     else:              
-      if USE_GRADIENT: self.FitResult = minimize(GetChi2,PToFit,args=[self],bounds=PToFitBounds,jac=GetChi2Grad,options={"stra":0})
-      else: self.FitResult = minimize(GetChi2,PToFit,args=[self],bounds=PToFitBounds,options={"stra":0})
+      if USE_GRADIENT: self.FitResult = minimize(GetChi2,PToFit,args=[self],bounds=PToFitBounds,jac=GetChi2Grad,options={"stra":0},method='migrad')
+      else: self.FitResult = minimize(GetChi2,PToFit,args=[self],bounds=PToFitBounds,options={"stra":0},method='migrad')
     postfit_time = time.perf_counter()
     print("..minimiser finished in %0.4f seconds"%(postfit_time-prefit_time))
+    
 
     self.setPOIS({ipoi:self.FitResult.x[ip] for ip, ipoi in enumerate(self.PToFitList)})
 
@@ -277,8 +300,9 @@ class fitter:
     
     # Loop over range of pois and calc chi2
     pvals = np.linspace( self.POIS[poi]['range'][0], self.POIS[poi]['range'][1], npoints )
-    pvals
+
     chi2 = []
+    allpvals = []
     allparams = []
     allpredictions = []
 
@@ -289,10 +313,12 @@ class fitter:
         self.minimize(freezePOIS=self.getFreePOIs(),verbose=False) 
         chi2.append(self.FitResult.fun-nll_global) 
       else: chi2.append(self.getChi2(verbose=False)-nll_global)
+      allpvals.append(self.P0)
       allparams.append(self.getPOIS())
       allpredictions.append(self.getPredictions())
 
-    return pvals, np.array(chi2), allparams, allpredictions
+    retval = dataresult(pvals,np.array(chi2),np.array(allpvals),allparams,allpredictions)
+    return retval
 
   # Function to perform chi2 scan when profiling other parameters
   # we can thread the calls to minimize and pull them together (sort after with itertools?)
