@@ -28,6 +28,14 @@ This will produce the following plot
 
 ![Exampleprof](profile_example.png)
 
+You can also directly go straight from the scans to the plot without converting to a text file, with 
+
+```
+python utils/poi_profile.py resultstth_hgg_fits_kVkF_observed.pkl --show --pois kappa_F
+```
+
+And if you just want to do a simple fit with Hessian approximate uncertainties just run the fit with the option `--justFit`. 
+
 ## Options 
 ```
 python runFit.py --help                                                                                            [15:44:30]
@@ -50,12 +58,12 @@ Options:
   --doFlip              Start scan from max val of poi
   --doLinear            Also run the scan using linear terms of functions
                         (defined in --functions) -- only appropriate for EFT
-                        models with SM+linear+BSM terms)
+                        models with SM+linear+BSM terms
   --setParamsToNominal  Set nominal values of the POIs to those at the global
                         minimum
+  --justFit             Just run the fit without scanning
 ```                    
 
-**To-do** : add proper description of `runFit.py` 
 
 ## Settings 
 

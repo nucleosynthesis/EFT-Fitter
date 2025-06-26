@@ -26,9 +26,13 @@ def termsToFunction(_terms):
   return f
 
 # Function for printing matrix
-def printMatrix(_mat):
+def printMatrix(_mat,pars=None):
+  if not pars is None:
+    print("Matrix with parameters:")
+    print(" ".join(pars))
   for i in range(len(_mat[0])):
-    vstr =  "("
+    if pars: vstr = pars[i] + " ("
+    else: vstr =  "("
     for j in range(len(_mat[0])): vstr += " %-5.2f "%_mat[i][j]
     vstr += ")"
     print(vstr)
